@@ -32,9 +32,15 @@ nhanesTables(data_group='Q', year=2018)
 #Demo
 demo_raw <- nhanes('DEMO_J') %>% tibble()
 
+#reading in some files of interest from the diet data
+#added diet - affects sleep?
+total_nutrient <- nhanes('DR1TOT_J') %>% tibble()
+ind_foods <- nhanes('DR1IFF_J') %>% tibble()
+diet_supp <- nhanes('DSQTOT_J') %>% tibble()
+
 #reading in some files of interest from the exam data
 bp <- nhanes('BPX_J') %>% tibble()
-bODY_measures <- nhanes('BMX_J') %>% tibble()
+body_measures <- nhanes('BMX_J') %>% tibble()
 dexa_femur <- nhanes('DXXFEM_J') %>% tibble()
 dexa_body <- nhanes('DXX_J') %>% tibble()
 dexa_spine <- nhanes('DXXSPN_J') %>% tibble()
@@ -56,17 +62,20 @@ biochem <- nhanes('BIOPRO_J') %>% tibble()
 iron_status <- nhanes('FETIB_J') %>% tibble()
 LDL <- nhanes('TRIGLY_J') %>% tibble()
 cotinine <- nhanes('COT_J') %>% tibble()
+lead <- nhanes('PBCD_J') %>% tibble() #added 4/27
+mercury <- nhanes('IHGEM_J') %>% tibble() #added 4/27
+VOC <- nhanes('VOCWB_J') %>% tibble() #added 4/27
 
 ##reading in some files of interest from the questionnaire data
 
 cvs_health<- nhanes('CDQ_J') %>% tibble()
 phy_activ <- nhanes('PAQ_J') %>% tibble()
 phys_activ_youth <- nhanes('PAQY_J') %>% tibble()
-health-insurance <- nhanes('HIQ_J') %>% tibble()
+health_insurance <- nhanes('HIQ_J') %>% tibble()
 disability <- nhanes('DLQ_J') %>% tibble()
 diabetes <- nhanes('DIQ_J') %>% tibble()
 Physical_Functioning <- nhanes('PFQ_J') %>% tibble()
-recent_smoke <- nhanes('SMQFAM_J') %>% tibble()
+recent_smoke <- nhanes('SMQRTU_J') %>% tibble() #fixed nhanes code
 househol_smoke <- nhanes('SMQFAM_J') %>% tibble()
 smoking <- nhanes('SMQ_J') %>% tibble()
 med_conditions <- nhanes('MCQ_J') %>% tibble()
@@ -83,6 +92,8 @@ depression_screen <- nhanes('DPQ_J') %>% tibble()
 drug_use <- nhanes('DUQ_J') %>% tibble()
 childhood <- nhanes('ECQ_J') %>% tibble()
 diet_behav <- nhanes('DBQ_J') %>% tibble()
+pesticide <- nhanes('PUQMEC_J') %>% tibble() #added 4/27
+vol_toxicant <- nhanes('VTQ_J') %>% tibble() #added 4/27
 
 
 #Following is one of the most efficient ways that I have found for left joining
@@ -96,10 +107,10 @@ nhanes_combined <- list(demo_raw, alcohol_use, bODY_measures,Aspirin_use) %>%
 
 
 
-# remove multiple records
+# remove duplicate records
 
 
-#preprocessing
+# preprocessing
 
 
-#ml models
+# ml models
