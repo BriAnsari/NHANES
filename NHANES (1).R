@@ -94,8 +94,8 @@ childhood <- nhanes('ECQ_J') %>% tibble()
 diet_behav <- nhanes('DBQ_J') %>% tibble()
 pesticide <- nhanes('PUQMEC_J') %>% tibble() #added 4/27
 vol_toxicant <- nhanes('VTQ_J') %>% tibble() #added 4/27
-weight_history<-nhanes('WHQ_J')%>% tibble() #4/27 added
-mental_health <-nhanes('DPQ_J')%>% tibble() #4/27 added
+weight_history<-nhanes('WHQ_J')%>% tibble() #4/27 JOE added
+mental_health <-nhanes('DPQ_J')%>% tibble() #4/27 JOE added
 
 #Following is one of the most efficient ways that I have found for left joining
 #let us know if there is a better way to do this. I included three files just to check the code and will all the other ones
