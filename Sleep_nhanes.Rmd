@@ -1,0 +1,1273 @@
+---
+title: "sleep"
+author: "mdt-ds"
+date: "30/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tidyverse)
+library(dplyr)
+library(themis)
+library(RNHANES)
+library(sjlabelled)
+library(nhanesA)
+library(ggsci)
+library(ggthemes)
+library(janitor)
+library(rsample)
+library(recipes)
+library(parsnip)
+library(workflows)
+library(DALEX)
+library(modelDown)
+library(modelStudio)
+```
+
+
+looking for file names in each data type
+```{r}
+
+nhanesTables(data_group='DEMO', year=2018)
+nhanesTables(data_group='DIET', year=2018)
+nhanesTables(data_group='EXAM', year=2018)
+nhanesTables(data_group='LAB', year=2018)
+nhanesTables(data_group='Q', year=2018)
+```
+
+
+ingest data and remove SAS labels for ML models
+```{r}
+
+
+
+# demo
+demo_raw <- nhanes('DEMO_J') %>% remove_all_labels()
+#reading in some files of interest from the diet data
+#added diet - affects sleep?
+total_nutrient <- nhanes('DR1TOT_J') %>% remove_all_labels()
+ind_foods <- nhanes('DR1IFF_J')  %>% remove_all_labels()
+diet_supp <- nhanes('DSQTOT_J')  %>% remove_all_labels()
+
+#reading in some files of interest from the exam data
+bp <- nhanes('BPX_J')  %>% remove_all_labels()
+body_measures <- nhanes('BMX_J')  %>% remove_all_labels()
+dexa_femur <- nhanes('DXXFEM_J')  %>% remove_all_labels()
+dexa_body <- nhanes('DXX_J')  %>% remove_all_labels()
+dexa_spine <- nhanes('DXXSPN_J')  %>% remove_all_labels()
+liver_US <- nhanes('LUX_J')  %>% remove_all_labels()
+
+#reading in some files of interest from the lab data
+
+urine_flow <- nhanes('UCFLOW_J')  %>% remove_all_labels()
+fasting_q <- nhanes('FASTQX_J')  %>% remove_all_labels()
+hba1c <- nhanes('GHB_J')  %>% remove_all_labels()
+urine_alb_cr <- nhanes('ALB_CR_J')  %>% remove_all_labels()
+uine_preg <- nhanes('UCPREG_J')  %>% remove_all_labels()
+cbc <- nhanes('CBC_J')  %>% remove_all_labels()
+crp <- nhanes('HSCRP_J')  %>% remove_all_labels()
+total_chol <- nhanes('TCHOL_J')  %>% remove_all_labels()
+hdl <- nhanes('HDL_J')  %>% remove_all_labels()
+biochem <- nhanes('BIOPRO_J')  %>% remove_all_labels()
+iron_status <- nhanes('FETIB_J')  %>% remove_all_labels()
+LDL <- nhanes('TRIGLY_J')  %>% remove_all_labels()
+cotinine <- nhanes('COT_J')  %>% remove_all_labels()
+lead <- nhanes('PBCD_J')  %>% remove_all_labels()
+mercury <- nhanes('IHGEM_J')  %>% remove_all_labels()
+VOC <- nhanes('VOCWB_J')  %>% remove_all_labels()
+
+##reading in some files of interest from the questionnaire data
+
+cvs_health<- nhanes('CDQ_J')  %>% remove_all_labels()
+phy_activ <- nhanes('PAQ_J')  %>% remove_all_labels()
+phys_activ_youth <- nhanes('PAQY_J')  %>% remove_all_labels()
+health_insurance <- nhanes('HIQ_J')  %>% remove_all_labels()
+disability <- nhanes('DLQ_J')  %>% remove_all_labels()
+diabetes <- nhanes('DIQ_J')  %>% remove_all_labels()
+Physical_Functioning <- nhanes('PFQ_J')  %>% remove_all_labels()
+recent_smoke <- nhanes('SMQRTU_J')  %>% remove_all_labels()
+househol_smoke <- nhanes('SMQFAM_J')  %>% remove_all_labels()
+smoking <- nhanes('SMQ_J')  %>% remove_all_labels()
+med_conditions <- nhanes('MCQ_J')  %>% remove_all_labels()
+current_health <- nhanes('HSQ_J')  %>% remove_all_labels()
+alcohol_use <- nhanes('ALQ_J')  %>% remove_all_labels()
+Aspirin_use <- nhanes('RXQASA_J')  %>% remove_all_labels()
+prescrition_med <- nhanes('RXQ_RX_J')  %>% remove_all_labels()
+house_char <- nhanes('HOQ_J')  %>% remove_all_labels()
+derm <- nhanes('DEQ_J')  %>% remove_all_labels()
+new_culture <- nhanes('ACQ_J')  %>% remove_all_labels()
+sleep_disorder <- nhanes('SLQ_J')  %>% remove_all_labels()
+occupattion <- nhanes('OCQ_J')  %>% remove_all_labels()
+depression_screen <- nhanes('DPQ_J')  %>% remove_all_labels()
+drug_use <- nhanes('DUQ_J')  %>% remove_all_labels()
+childhood <- nhanes('ECQ_J')  %>% remove_all_labels()
+diet_behav <- nhanes('DBQ_J')  %>% remove_all_labels()
+pesticide <- nhanes('PUQMEC_J')  %>% remove_all_labels()
+vol_toxicant <- nhanes('VTQ_J')  %>% remove_all_labels()
+weight_history<-nhanes('WHQ_J')  %>% remove_all_labels()
+mental_health <-nhanes('DPQ_J')  %>% remove_all_labels()
+
+```
+
+#checking for correlated data
+```{r}
+
+
+#alcohol use
+distinct_observation <- alcohol_use %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# aspirin
+
+distinct_observation <- Aspirin_use %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#biochem
+
+distinct_observation <- biochem %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#body measure
+distinct_observation <- body_measures %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#bp
+
+distinct_observation <- bp %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#cbc
+
+distinct_observation <- cbc %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#childhood
+
+distinct_observation <- childhood %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#conitine
+
+distinct_observation <- cotinine %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#crp
+distinct_observation <- crp %>% 
+distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# current health
+
+distinct_observation <- current_health %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# cvs_health
+
+distinct_observation <- cvs_health %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#demo
+
+distinct_observation <- demo_raw %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#depression
+
+distinct_observation <- depression_screen %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#derm
+
+distinct_observation <- derm %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#dexa_body #5114
+
+distinct_observation <- dexa_body %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#dexa femur #2898
+
+distinct_observation <- dexa_femur %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# dexa_spine # 2898
+
+distinct_observation <- dexa_spine %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#diabetes #8897
+
+distinct_observation <- diabetes %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#  diet_behav #9254
+
+distinct_observation <- diet_behav %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#diet supp #9254
+
+distinct_observation <- diet_supp %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# diability #8897
+
+distinct_observation <- disability %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# drug use 4572
+
+distinct_observation <- drug_use %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+
+#fasting_q #8366
+
+distinct_observation <- fasting_q %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#hba1c #6401
+
+distinct_observation <- hba1c %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# hdl #7435
+
+distinct_observation <- hdl %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# health insurance #9254
+distinct_observation <- health_insurance %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#house char #9254
+distinct_observation <- house_char %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#household smoke #9254
+
+distinct_observation <- househol_smoke %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#ind_foods # 112683######################
+################caution: correlated data##
+
+distinct_observation <- ind_foods %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#iron status # 6401
+
+distinct_observation <- iron_status %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# ldl #3036
+
+distinct_observation <- LDL %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# lead #8366
+
+distinct_observation <- lead %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# liver # 6401
+
+distinct_observation <- liver_US %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#med condition #8897
+distinct_observation <- med_conditions %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#mental health #5533
+
+distinct_observation <- mental_health %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# mercury # 8366
+
+distinct_observation <- mercury %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# new culture # 8421
+distinct_observation <- new_culture %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# occupation #6161
+
+distinct_observation <- occupattion %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#pesticide # 7435
+
+distinct_observation <- pesticide %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# phys_activ #5856
+
+distinct_observation <- phy_activ %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+
+# phys actuve youth # 2778
+
+distinct_observation <- phys_activ_youth %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# physical functioning #8421
+
+distinct_observation <- Physical_Functioning %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# prescription # 19643
+############### caution:correlated data
+
+distinct_observation <- prescrition_med %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# recent smoke #6401
+
+distinct_observation <- recent_smoke %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#sleep disorder 6161
+
+distinct_observation <- sleep_disorder %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#smoking 6724
+
+distinct_observation <-  smoking %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# total chol 7435
+
+distinct_observation <- total_chol %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# total nutrition # 8704
+
+distinct_observation <- total_nutrient %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# urine preg #1057
+
+distinct_observation <- uine_preg %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# urin alb/cr #7936
+
+distinct_observation <- urine_alb_cr %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+#urine floe 7936
+
+distinct_observation <- urine_flow %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# voc 3172
+distinct_observation <- VOC %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# vol_toxi 3172
+
+distinct_observation <- vol_toxicant %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+# weight hist # 6161
+
+distinct_observation <- weight_history %>% 
+  distinct(SEQN) %>% 
+  summarise(dist=n()) %>% 
+  pull(dist)
+
+distinct_observation
+
+
+
+```
+
+remove redundant variables from sleep_disorder
+
+```{r}
+sleep_disorder <- sleep_disorder %>% select(c(SEQN,SLQ050))
+str(sleep_disorder)
+```
+
+
+## combine data demo,alcohol_use,aspirin_use,biochem,body_measures,sleep_disorder, bp
+```{r}
+
+combined <- demo_raw %>%
+  left_join(alcohol_use) %>% 
+  left_join(Aspirin_use) %>% 
+  left_join(biochem) %>% 
+  left_join(body_measures) %>% 
+  left_join(bp) %>% 
+  left_join(sleep_disorder)
+
+```
+
+# Split data
+```{r}
+split <- combined %>% initial_split(prop = 0.8, strata = SLQ050)
+train <- training(split)
+test <- testing(split)
+```
+
+## preprocessing
+```{r}
+rec <- recipe(x = train, formula = SLQ050~.) %>% 
+  update_role(SEQN, new_role = "ID") %>% 
+  step_naomit(SLQ050) %>% 
+  step_filter(SLQ050!=9) %>% 
+  step_num2factor(SLQ050, levels = c("Y","N")) %>% 
+  step_impute_median(all_predictors()) %>% 
+  step_nzv(all_predictors())
+  
+
+rec
+```
+
+```{r}
+train_prepped <- prep(x = rec, training = train)
+train_baked <- bake(train_prepped, new_data = NULL)
+```
+
+## variable importance 
+
+```{r fig.height=8}
+rf_emdl <- randomForest::randomForest(SLQ050~., 
+                                      data = train_baked %>% select(-SEQN))
+randomForest::varImpPlot(rf_emdl, n.var = 10)
+```
+
+
+create a dataset with very imp variables
+
+```{r}
+vip1 <- combined %>% select(c(SEQN,BMXWAIST,RIDAGEYR,BMXBMI,WTINT2YR))
+str(vip1)
+
+
+```
+
+
+## combine data cbc,childhood,conitine,crp,current_health
+```{r}
+
+combined <- cbc %>%
+  left_join(childhood) %>% 
+  left_join(cotinine) %>% 
+  left_join(crp) %>% 
+  left_join(current_health) %>% 
+  left_join(sleep_disorder)
+
+```
+
+# Split data
+```{r}
+split <- combined %>% initial_split(prop = 0.8, strata = SLQ050)
+train <- training(split)
+test <- testing(split)
+```
+
+## preprocessing
+```{r}
+rec <- recipe(x = train, formula = SLQ050~.) %>% 
+  update_role(SEQN, new_role = "ID") %>% 
+  step_naomit(SLQ050) %>% 
+  step_filter(SLQ050!=9) %>% 
+  step_num2factor(SLQ050, levels = c("Y","N")) %>% 
+  step_impute_median(all_predictors()) %>% 
+  step_nzv(all_predictors())
+  
+
+rec
+```
+
+```{r}
+train_prepped <- prep(x = rec, training = train)
+train_baked <- bake(train_prepped, new_data = NULL)
+```
+
+## variable importance 
+
+```{r fig.height=8}
+rf_emdl <- randomForest::randomForest(SLQ050~., 
+                                      data = train_baked %>% select(-SEQN))
+randomForest::varImpPlot(rf_emdl, n.var = 25)
+```
+Create vip2
+```{r}
+vip2 <- combined %>% select(c(SEQN,LBXHSCRP, LBXPLTSI,LBXMCVSI,LBXRBCSI,LBXRDW,LBXLYPCT,LBXNEPCT,LBXMOPCT,LBXMPSI,LBXHCT,LBXEOPCT,LBXMCHSI,HSD010,LBXWBCSI,
+                              LBXMC,LBXHGB,LBDNENO,LBDLYMNO,LBXBAPCT,LBDMONO))
+str(vip2)
+
+```
+
+## combine data cvs health,dexa_body,dexa_femur,dexa_spine,diabetes
+```{r}
+
+combined <- cvs_health %>% 
+  left_join(dexa_body) %>% 
+  left_join(dexa_femur) %>% 
+  left_join(dexa_spine) %>% 
+  left_join(diabetes) %>% 
+  left_join(sleep_disorder)
+
+```
+
+# Split data
+```{r}
+split <- combined %>% initial_split(prop = 0.8, strata = SLQ050)
+train <- training(split)
+test <- testing(split)
+```
+
+## preprocessing
+```{r}
+rec <- recipe(x = train, formula = SLQ050~.) %>% 
+  update_role(SEQN, new_role = "ID") %>% 
+  step_naomit(SLQ050) %>% 
+  step_filter(SLQ050!=9) %>% 
+  step_num2factor(SLQ050, levels = c("Y","N")) %>% 
+  step_impute_median(all_predictors()) %>% 
+  step_nzv(all_predictors())
+  
+
+rec
+```
+
+```{r}
+train_prepped <- prep(x = rec, training = train)
+train_baked <- bake(train_prepped, new_data = NULL)
+```
+
+## variable importance 
+
+```{r fig.height=8}
+rf_emdl <- randomForest::randomForest(SLQ050~., 
+                                      data = train_baked %>% select(-SEQN))
+randomForest::varImpPlot(rf_emdl, n.var = 10)
+```
+
+## combine data diet_behav,diet_supp,disability,drug_use,fasting_q,hba1c
+```{r}
+
+combined <- diet_behav %>%
+  left_join(diet_supp) %>% 
+  left_join(disability) %>% 
+  left_join(drug_use) %>% 
+  left_join(fasting_q) %>% 
+  left_join(hba1c) %>% 
+  left_join(sleep_disorder)
+
+```
+
+# Split data
+```{r}
+split <- combined %>% initial_split(prop = 0.8, strata = SLQ050)
+train <- training(split)
+test <- testing(split)
+```
+
+## preprocessing
+```{r}
+rec <- recipe(x = train, formula = SLQ050~.) %>% 
+  update_role(SEQN, new_role = "ID") %>% 
+  step_naomit(SLQ050) %>% 
+  step_filter(SLQ050!=9) %>% 
+  step_num2factor(SLQ050, levels = c("Y","N")) %>% 
+  step_impute_median(all_predictors()) %>% 
+  step_nzv(all_predictors())
+  
+
+rec
+```
+
+```{r}
+train_prepped <- prep(x = rec, training = train)
+train_baked <- bake(train_prepped, new_data = NULL)
+```
+
+## variable importance 
+
+```{r fig.height=8}
+rf_emdl <- randomForest::randomForest(SLQ050~., 
+                                      data = train_baked %>% select(-SEQN))
+randomForest::varImpPlot(rf_emdl, n.var = 20)
+```
+
+create vip3
+```{r}
+vip3 <- combined %>% select(c(SEQN,PHAFSTMN,LBXGH,PHAFSTHR,DLQ140,DBD895,DLQ110,DLQ100,DLQ150,DSDCOUNT,DBD900,DBQ700,DSQTVB6,DBD905,DBD910,
+                              DBQ197,DUQ220Q,DLQ130,DLQ170,DBQ235C))
+str(vip3)
+```
+
+
+## combine data demo to hdl,health insurance,hoyuse_char,household_smoke,iron_status,lead
+```{r}
+
+combined <- hdl %>%
+  left_join(health_insurance) %>% 
+  left_join(house_char) %>% 
+  left_join(househol_smoke) %>% 
+  left_join(iron_status) %>% 
+  left_join(lead) %>% 
+  left_join(sleep_disorder)
+
+```
+
+# Split data
+```{r}
+split <- combined %>% initial_split(prop = 0.8, strata = SLQ050)
+train <- training(split)
+test <- testing(split)
+```
+
+## preprocessing
+```{r}
+rec <- recipe(x = train, formula = SLQ050~.) %>% 
+  update_role(SEQN, new_role = "ID") %>% 
+  step_naomit(SLQ050) %>% 
+  step_filter(SLQ050!=9) %>% 
+  step_num2factor(SLQ050, levels = c("Y","N")) %>% 
+  step_impute_median(all_predictors()) %>% 
+  step_nzv(all_predictors())
+  
+
+rec
+```
+
+```{r}
+train_prepped <- prep(x = rec, training = train)
+train_baked <- bake(train_prepped, new_data = NULL)
+```
+
+## variable importance 
+
+```{r fig.height=8}
+rf_emdl <- randomForest::randomForest(SLQ050~., 
+                                      data = train_baked %>% select(-SEQN))
+randomForest::varImpPlot(rf_emdl, n.var = 25)
+```
+
+
+get names for vip
+```{r}
+x<-rf_emdl$importance
+
+print(x)
+
+a<-as.data.frame(x)
+
+str(a)
+
+names(a)
+
+print(a)
+
+order(a)
+
+
+b <-  a %>% 
+      filter(MeanDecreaseGini >= 40) 
+
+b
+
+```
+
+vip 4
+```{r}
+vip4 <- combined %>% select(c(SEQN,
+LBDHDD,
+LBDHDDSI,
+HOD050,
+LBXIRN,
+LBDIRNSI,
+LBXUIB,
+LBDUIBSI,
+LBDTIB,
+LBDTIBSI,
+LBDPCT,
+LBXBPB,
+LBDBPBSI,
+LBXBCD,
+LBDBCDSI,
+LBXTHG,
+LBDTHGSI,
+LBXBSE, 
+LBDBSESI, 
+LBXBMN,LBDBMNSI))
+
+str(vip4)
+
+```
+
+## combine data ldl,liver_us,liver_conditions,mental_health,mercury,newculture,
+```{r}
+
+combined <- LDL %>%
+  left_join(liver_US) %>% 
+  left_join(med_conditions) %>% 
+  left_join(mental_health) %>% 
+  left_join(mercury) %>% 
+  left_join(new_culture) %>% 
+  left_join(sleep_disorder)
+
+```
+
+# Split data
+```{r}
+split <- combined %>% initial_split(prop = 0.8, strata = SLQ050)
+train <- training(split)
+test <- testing(split)
+```
+
+## preprocessing
+```{r}
+rec <- recipe(x = train, formula = SLQ050~.) %>% 
+  update_role(SEQN, new_role = "ID") %>% 
+  step_naomit(SLQ050) %>% 
+  step_filter(SLQ050!=9) %>% 
+  step_num2factor(SLQ050, levels = c("Y","N")) %>% 
+  step_impute_median(all_predictors()) %>% 
+  step_nzv(all_predictors())
+  
+
+rec
+```
+
+```{r}
+train_prepped <- prep(x = rec, training = train)
+train_baked <- bake(train_prepped, new_data = NULL)
+```
+
+## variable importance 
+
+```{r fig.height=8}
+rf_emdl <- randomForest::randomForest(SLQ050~., 
+                                      data = train_baked %>% select(-SEQN))
+randomForest::varImpPlot(rf_emdl, n.var = 10)
+```
+create vip5
+
+```{r}
+vip5 <- combined %>% select(c(SEQN,DPQ030,WTSAF2YR))
+
+str(vip5)
+```
+
+
+
+
+## combine data demo to occupation,pesticide,phys_activ,phys_activ,youth,phys function,recent_smoke
+```{r}
+
+combined <- occupattion %>%
+  left_join(pesticide) %>% 
+  left_join(phy_activ) %>% 
+  left_join(phys_activ_youth) %>% 
+  left_join(Physical_Functioning) %>% 
+  left_join(recent_smoke) %>% 
+  left_join(sleep_disorder)
+
+```
+
+# Split data
+```{r}
+split <- combined %>% initial_split(prop = 0.8, strata = SLQ050)
+train <- training(split)
+test <- testing(split)
+```
+
+## preprocessing
+```{r}
+rec <- recipe(x = train, formula = SLQ050~.) %>% 
+  update_role(SEQN, new_role = "ID") %>% 
+  step_naomit(SLQ050) %>% 
+  step_filter(SLQ050!=9) %>% 
+  step_num2factor(SLQ050, levels = c("Y","N")) %>% 
+  step_impute_median(all_predictors()) %>% 
+  step_nzv(all_predictors())
+  
+
+rec
+```
+
+```{r}
+train_prepped <- prep(x = rec, training = train)
+train_baked <- bake(train_prepped, new_data = NULL)
+```
+
+## variable importance 
+
+```{r fig.height=8}
+rf_emdl <- randomForest::randomForest(SLQ050~., 
+                                      data = train_baked %>% select(-SEQN))
+randomForest::varImpPlot(rf_emdl, n.var = 15)
+```
+
+get names for vip
+```{r}
+x<-rf_emdl$importance
+
+print(x)
+
+a<-as.data.frame(x)
+
+str(a)
+
+names(a)
+
+print(a)
+
+order(a)
+
+
+b <-  a %>% 
+      filter(MeanDecreaseGini >= 40) 
+
+b
+
+```
+create vip5
+
+```{r}
+vip5 <- combined %>% select(c(SEQN,
+OCQ180,
+OCD270,
+OCD395,
+PAQ625,
+PAD630,
+PAQ670,
+PAD675,
+PAD680,
+PFQ051,
+PFQ061N,
+PFQ061T,
+PFQ063A,
+PFQ063B))
+
+str(vip5)
+
+```
+
+
+
+## combine data smoking,total chol,total_nutrients,urine_preg,urine_albumin,urine flow
+```{r}
+
+combined <- smoking %>%
+  left_join(total_chol) %>% 
+  left_join(total_nutrient) %>% 
+  left_join(uine_preg) %>% 
+  left_join(urine_alb_cr) %>% 
+  left_join(urine_flow) %>% 
+  left_join(sleep_disorder)
+
+```
+
+# Split data
+```{r}
+split <- combined %>% initial_split(prop = 0.8, strata = SLQ050)
+train <- training(split)
+test <- testing(split)
+```
+
+## preprocessing
+```{r}
+rec <- recipe(x = train, formula = SLQ050~.) %>% 
+  update_role(SEQN, new_role = "ID") %>% 
+  step_naomit(SLQ050) %>% 
+  step_filter(SLQ050!=9) %>% 
+  step_num2factor(SLQ050, levels = c("Y","N")) %>% 
+  step_impute_median(all_predictors()) %>% 
+  step_nzv(all_predictors())
+  
+
+rec
+```
+
+```{r}
+train_prepped <- prep(x = rec, training = train)
+train_baked <- bake(train_prepped, new_data = NULL)
+```
+
+## variable importance 
+
+```{r fig.height=8}
+rf_emdl <- randomForest::randomForest(SLQ050~., 
+                                      data = train_baked %>% select(-SEQN))
+randomForest::varImpPlot(rf_emdl, n.var = 10)
+```
+
+
+
+## combine data voc,vol_toxic,weight_histor
+```{r}
+
+combined <- VOC %>%
+  left_join(vol_toxicant) %>% 
+  left_join(weight_history) %>% 
+  left_join(sleep_disorder)
+
+```
+
+# Split data
+```{r}
+split <- combined %>% initial_split(prop = 0.8, strata = SLQ050)
+train <- training(split)
+test <- testing(split)
+```
+
+## preprocessing
+```{r}
+rec <- recipe(x = train, formula = SLQ050~.) %>% 
+  update_role(SEQN, new_role = "ID") %>% 
+  step_naomit(SLQ050) %>% 
+  step_filter(SLQ050!=9) %>% 
+  step_num2factor(SLQ050, levels = c("Y","N")) %>% 
+  step_impute_median(all_predictors()) %>% 
+  step_nzv(all_predictors())
+  
+
+rec
+```
+
+```{r}
+train_prepped <- prep(x = rec, training = train)
+train_baked <- bake(train_prepped, new_data = NULL)
+```
+
+## variable importance 
+
+```{r fig.height=8}
+rf_emdl <- randomForest::randomForest(SLQ050~., 
+                                      data = train_baked %>% select(-SEQN))
+randomForest::varImpPlot(rf_emdl, n.var = 10)
+```
+
+
+get names for vip
+```{r}
+x<-rf_emdl$importance
+
+print(x)
+
+a<-as.data.frame(x)
+
+str(a)
+
+names(a)
+
+print(a)
+
+order(a)
+
+
+b <-  a %>% 
+      filter(MeanDecreaseGini >= 40) 
+
+b
+
+```
+
+create vip
+
+```{r}
+vip6 <- combined %>% select(c(SEQN,WTSVOC2Y,LBXVXY,VTD271B,WHD010,WHD020,
+WHD050,
+WHD110,
+WHD120,
+WHD130,
+WHD140,
+WHQ150))
+
+str(vip6)
+```
+
+
+
+future considerations:
+choose variables, tune Gini
+consider NHANES weights
+outcome is imbalanced, solutions: upsample or downsample
+refer data dictionary to reformat variables as.factor or as.numeric
+sleep variables are messing with the outcome
+nhanes weights
+keep SLQ040,SLD01
+
+## mdl spec
+```{r}
+rf_spec <- rand_forest() %>%
+  set_mode("classification") %>% 
+  set_engine("randomForest")
+```
+
+## train a random forest model
+```{r}
+rf_wf_mdl <- workflow() %>% 
+  add_model(rf_spec) %>% 
+  add_recipe(rec) %>% 
+  fit(data = train)
+```
+
+```{r}
+mdl <- rf_wf_mdl$fit$fit
+mdl
+```
+
+```{r}
+
+rf_explainer <- explain(model = mdl, 
+                        data = train_baked, 
+                        y = train_baked$SLQ050,
+                        label = "random forest")
+```
+
+## new obs
+```{r}
+new_obs <- bake(prep(rec), new_data = test) %>% 
+  slice_sample(n=1)
+```
+
+## break down profile
+```{r fig.height=8}
+rf_explainer %>% 
+  predict_parts_break_down(new_observation = new_obs ) %>% 
+  plot()
+```
+
+## shapley value
+```{r}
+rf_explainer %>% 
+  predict_parts_shap(new_observation = new_obs) %>% 
+  plot(show_boxplots = TRUE)
+```
+
+## ceteris paribus
+```{r}
+predict(rf_explainer, newdata = new_obs)
+cp_prof <- rf_explainer %>% 
+  predict_profile(new_observation = new_obs,
+                  variables = c("DPQ070", "DPQ080")) 
+plot(cp_prof, variables = c("DPQ070"))
+```
+
