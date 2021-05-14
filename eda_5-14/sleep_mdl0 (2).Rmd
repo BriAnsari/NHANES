@@ -1,0 +1,103 @@
+---
+title: "Untitled"
+author: "mdt-ds"
+date: "11/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## data
+
+```{r}
+dat <- readr::read_csv("dat.csv")
+str(dat)
+```
+
+```{r}
+d <- dat %>% 
+   filter_all(any_vars(. == 9 ))
+```
+
+## preprocessing
+```{r}
+library(dplyr)
+library(tidyr)
+library(recipes)
+
+factors <- c("SEQN","SLQ040","HSD010","DLQ140","HOD050","DBQ197","DLQ130","DLQ170","DBQ235C","DLQ110","DLQ100","DLQ150","DBQ700","SLQ050","PFQ063B","DPQ030","PFQ051","PFQ061N","PFQ061T","PFQ063A")
+
+
+
+
+contn <- c("PHAFSTMN","LBXPLTSI","PHAFSTHR","LBDPCT","LBDTIB","LBXUIB","LBXIRN","LBDHDD","DSDCOUNT","DBD900","DBD905","DBD910","DBD895","WHQ150","WHD120","WHD010","WHD020","WHD050","WHD110","VTD271B","OCQ180","OCD270","OCD395","PAQ625","PAD630","PAQ670","PAD675","PAD680","WHD140","WHD130","DUQ220Q")
+
+#reformat data
+
+sleep_tbl <- dat %>%
+drop_na(SLQ050) %>%
+mutate_at(factors, factor) %>%
+mutate_at(contn, as.numeric)
+
+str(sleep_tbl)
+
+
+
+```
+
+## spend data
+```{r}
+library(rsample)
+sleep_splits <- initial_split(data = sleep_tbl, strata = SLQ050, prop = 0.80)
+sleep_train <- training(sleep_splits)
+sleep_test <- testing(sleep_splits)
+```
+
+## preprocessing
+```{r}
+sleep_rec <- recipe(x = sleep_train, formula = SLQ050~.) %>% 
+  update_role(SEQN, new_role = "ID") %>% 
+  step_other(all_nominal_predictors(), threshold = 0.02) %>% 
+  step_impute_mode(all_nominal_predictors()) %>% 
+  step_impute_median(all_numeric_predictors()) %>% 
+  step_nzv(all_predictors()) %>% 
+  step_corr(all_numeric_predictors(),threshold = 0.8) %>% 
+  prep()
+
+sleep_rec
+```
+
+```{r}
+sleep_train_baked <- bake(sleep_rec, sleep_train)
+sleep_test_baked <- bake(sleep_rec, sleep_test)
+```
+
+## variable importance
+```{r fig.height=8}
+library(randomForest)
+rfvi_mdl <- randomForest(SLQ050~., data = sleep_train_baked %>% select(-SEQN))
+varImpPlot(rfvi_mdl)
+selected_vars <- importance(rfvi_mdl) %>%  
+  as_tibble( rownames = "variable") %>% 
+  arrange (desc(MeanDecreaseGini)) %>% 
+  slice_head(n = 20) %>% 
+  pull(variable)
+selected_vars
+
+```
+
+
+```{r}
+library(ggplot2)
+ggplot(sleep_tbl, aes(x = SLQ050, fill= DLQ110)) +
+           geom_bar()
+```
+```{r}
+ggplot(data = sleep_tbl, mapping = aes(x = SLQ050, y = HD050 )) +
+    geom_point() +
+    geom_smooth(aes(color = SLQ050)) +
+    facet_wrap( ~ SLQ050)
+```
+
