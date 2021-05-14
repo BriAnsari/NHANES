@@ -7,6 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+pacman::p_load("recipes")
+
 ```
 
 ## data
@@ -84,20 +86,98 @@ selected_vars <- importance(rfvi_mdl) %>%
   arrange (desc(MeanDecreaseGini)) %>% 
   slice_head(n = 20) %>% 
   pull(variable)
-selected_vars
+final_dat <- selected_vars
 
 ```
 
 
 ```{r}
 library(ggplot2)
+# DLQ110 Are you taking anxiety pills?
+# DLQ140 How often do you fel depressed?
 ggplot(sleep_tbl, aes(x = SLQ050, fill= DLQ110)) +
            geom_bar()
+
+ggplot(data = sleep_tbl) + 
+  geom_bar(mapping = aes(x = DLQ140, y = ..prop.., group = SLQ050), stat = "count") + 
+  scale_y_continuous(labels = scales::percent_format()) +
+  facet_wrap(~SLQ050)
+
+logit <- glm(SLQ050 ~ DLQ140, data = sleep_tbl, family = "binomial")
+summary(logit)
+```
+
+```{r}
+# HOD050 Number of rooms?
+# Remove!
+ggplot(data = sleep_tbl) + 
+  geom_bar(mapping = aes(x = HOD050, y = ..prop.., group = SLQ050), stat = "count") + 
+  scale_y_continuous(labels = scales::percent_format()) +
+  facet_wrap(~SLQ050)
+```
+
+```{r}
+# BMXBMI - BMI
+ggplot(data = sleep_tbl) + 
+  geom_boxplot(mapping = aes(x = SLQ050, y = BMXBMI))
+
+logit <- glm(data = sleep_tbl, SLQ050 ~ BMXBMI, family = "binomial")
+summary(logit)
 ```
 ```{r}
-ggplot(data = sleep_tbl, mapping = aes(x = SLQ050, y = HD050 )) +
-    geom_point() +
-    geom_smooth(aes(color = SLQ050)) +
-    facet_wrap( ~ SLQ050)
+# PFQ061T - push or pull large object
+ggplot(data = sleep_tbl) + 
+  geom_bar(mapping = aes(x = PFQ061T, y = ..prop.., group = SLQ050), stat = "count") + 
+  scale_y_continuous(labels = scales::percent_format()) +
+  facet_wrap(~SLQ050)
+
+logit <- glm(data = sleep_tbl, SLQ050 ~ PFQ061T, family = "binomial")
+summary(logit)
+```
+```{r}
+# DLQ150 
+# Do you take medication for depression?
+
+sleep_tbl$SLQ050 = factor(sleep_tbl$SLQ050, levels=c(1,2), labels=c("Yes","No"))
+logit <- glm(data = sleep_tbl, SLQ050 ~ DLQ150 + DLQ140 + DLQ150 * DLQ140, family = "binomial")
+summary(logit)
+```
+
+```{r}
+# Health problem?
+# Discard! No healthy option
+logit <- glm(data = sleep_tbl, SLQ050 ~ PFQ063A, family = "binomial")
+summary(logit)
+
+# Limit in amount of work?
+logit <- glm(data = sleep_tbl, SLQ050 ~ PFQ051, family = "binomial")
+summary(logit)
+```
+
+```{r}
+# age
+logit <- glm(data = sleep_tbl, SLQ050 ~ age, family = "binomial")
+summary(logit)
+
+plot(logit)
+
+ggplot(data = sleep_tbl) + 
+  geom_bar(mapping = aes(x = age, y = ..prop.., group = SLQ050), stat = "count") + 
+  scale_y_continuous(labels = scales::percent_format()) +
+  facet_wrap(~SLQ050)
+
+young <- sleep_tbl %>% filter(age <= 60)
+old <- sleep_tbl %>% filter(age > 60)
+
+sleep_tbl$age1 <- ifelse(sleep_tbl$age >= 60, 0, 1)
+
+logit <- glm(data = sleep_tbl, SLQ050 ~ age1, family = "binomial")
+summary(logit)
+```
+
+```{r}
+# SLQ040
+logit <- glm(data = sleep_tbl, SLQ050 ~ SLQ040, family = "binomial")
+summary(logit)
 ```
 
