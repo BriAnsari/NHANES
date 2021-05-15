@@ -94,7 +94,7 @@ final_dat <- selected_vars
 ```{r}
 library(ggplot2)
 # DLQ110 Are you taking anxiety pills?
-# DLQ140 How often do you fel depressed?
+# DLQ140 How often do you feel depressed?
 ggplot(sleep_tbl, aes(x = SLQ050, fill= DLQ110)) +
            geom_bar()
 
@@ -105,6 +105,7 @@ ggplot(data = sleep_tbl) +
 
 logit <- glm(SLQ050 ~ DLQ140, data = sleep_tbl, family = "binomial")
 summary(logit)
+exp(coef(logit))
 ```
 
 ```{r}
@@ -123,7 +124,16 @@ ggplot(data = sleep_tbl) +
 
 logit <- glm(data = sleep_tbl, SLQ050 ~ BMXBMI, family = "binomial")
 summary(logit)
+exp(coef(logit))
 ```
+```{r}
+# BMXWAIST 
+# Waist circum in cm?
+logit <- glm(data = sleep_tbl, SLQ050 ~ BMXWAIST, family = "binomial")
+summary(logit)
+exp(coef(logit))
+```
+
 ```{r}
 # PFQ061T - push or pull large object
 ggplot(data = sleep_tbl) + 
@@ -133,14 +143,17 @@ ggplot(data = sleep_tbl) +
 
 logit <- glm(data = sleep_tbl, SLQ050 ~ PFQ061T, family = "binomial")
 summary(logit)
+exp(coef(logit))
 ```
 ```{r}
 # DLQ150 
 # Do you take medication for depression?
+# Remove!! Surrogate for depression
 
 sleep_tbl$SLQ050 = factor(sleep_tbl$SLQ050, levels=c(1,2), labels=c("Yes","No"))
-logit <- glm(data = sleep_tbl, SLQ050 ~ DLQ150 + DLQ140 + DLQ150 * DLQ140, family = "binomial")
+logit <- glm(data = sleep_tbl, SLQ050 ~ DLQ150, family = "binomial")
 summary(logit)
+exp(coef(logit))
 ```
 
 ```{r}
@@ -152,12 +165,14 @@ summary(logit)
 # Limit in amount of work?
 logit <- glm(data = sleep_tbl, SLQ050 ~ PFQ051, family = "binomial")
 summary(logit)
+exp(coef(logit))
 ```
 
 ```{r}
 # age
 logit <- glm(data = sleep_tbl, SLQ050 ~ age, family = "binomial")
 summary(logit)
+exp(coef(logit))
 
 plot(logit)
 
@@ -166,18 +181,127 @@ ggplot(data = sleep_tbl) +
   scale_y_continuous(labels = scales::percent_format()) +
   facet_wrap(~SLQ050)
 
-young <- sleep_tbl %>% filter(age <= 60)
-old <- sleep_tbl %>% filter(age > 60)
+young <- sleep_tbl %>% filter(age <= 40)
+old <- sleep_tbl %>% filter(age > 40)
 
-sleep_tbl$age1 <- ifelse(sleep_tbl$age >= 60, 0, 1)
+sleep_tbl$age1 <- ifelse(sleep_tbl$age >= 40, 0, 1)
 
 logit <- glm(data = sleep_tbl, SLQ050 ~ age1, family = "binomial")
 summary(logit)
+exp(coef(logit))
 ```
 
 ```{r}
-# SLQ040
+# SLQ040 
+# How often do you snore or stop breathing?
 logit <- glm(data = sleep_tbl, SLQ050 ~ SLQ040, family = "binomial")
 summary(logit)
+exp(coef(logit))
+```
+
+```{r}
+# DPQ030
+# Trouble sleeping, sleeping too much?
+logit <- glm(data = sleep_tbl, SLQ050 ~ DPQ030, family = "binomial")
+summary(logit)
+exp(coef(logit))
+```
+
+```{r}
+# PFQ063A
+# Health problem causing difficulty
+# REMOVE!
+logit <- glm(data = sleep_tbl, SLQ050 ~ PFQ063A, family = "binomial")
+summary(logit)
+exp(coef(logit))
+```
+
+```{r}
+# LBXHSCRP
+# CRP?
+logit <- glm(data = sleep_tbl, SLQ050 ~ LBXHSCRP, family = "binomial")
+summary(logit)
+exp(coef(logit))
+```
+
+```{r}
+# LBDBMNSI
+# Blood manganese
+# Remove!! Odds 1.0017
+logit <- glm(data = sleep_tbl, SLQ050 ~ LBDBMNSI, family = "binomial")
+summary(logit)
+exp(coef(logit))
+```
+
+```{r}
+# DLQ100
+# How often do you feel worried or anxious?
+logit <- glm(data = sleep_tbl, SLQ050 ~ DLQ100, family = "binomial")
+summary(logit)
+exp(coef(logit))
+```
+
+```{r}
+# LBXPLTSI
+# Plt count
+# p > 0.05
+logit <- glm(data = sleep_tbl, SLQ050 ~ LBXPLTSI, family = "binomial")
+summary(logit)
+exp(coef(logit))
+```
+
+```{r}
+# LPXBPB
+# Blood lead
+# p > 0.05
+logit <- glm(data = sleep_tbl, SLQ050 ~ LBXBPB, family = "binomial")
+summary(logit)
+exp(coef(logit))
+```
+
+```{r}
+# LBXLYPCT
+# Lymphocyte
+logit <- glm(data = sleep_tbl, SLQ050 ~ LBXLYPCT, family = "binomial")
+summary(logit)
+exp(coef(logit))
+```
+
+```{r}
+# LBXBSE
+# Blood selenium
+# p > 0.05
+logit <- glm(data = sleep_tbl, SLQ050 ~ LBXBSE, family = "binomial")
+summary(logit)
+exp(coef(logit))
+```
+
+```{r}
+# LBDIRNSI
+# Blood iron
+logit <- glm(data = sleep_tbl, SLQ050 ~ LBDIRNSI, family = "binomial")
+summary(logit)
+exp(coef(logit))
+```
+
+```{r}
+final_dat <- sleep_tbl %>% select(c(SLQ050,
+                                    DLQ140, 
+                                    BMXWAIST, 
+                                    BMXBMI, 
+                                    PFQ061T,
+                                    DLQ150,
+                                    age,
+                                    SLQ040,
+                                    LBXHSCRP,
+                                    DLQ100,
+                                    LBDIRNSI))
+```
+
+```{r}
+pacman::p_load("corrplot")
+corrplot(final_dat, method = "circle")
+
+write.csv(final_dat, "mydata.csv")
 ```
 
