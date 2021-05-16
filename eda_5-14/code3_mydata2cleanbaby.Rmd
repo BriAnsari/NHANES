@@ -1,0 +1,101 @@
+
+
+
+
+```{r}
+library(tidyverse)
+library(recipes)
+
+dat <- read.csv("mydata.csv")
+
+
+summary(dat)
+
+# remiove 7 and 9
+dat1 <- dat %>% 
+        filter(SLQ050 != 9) %>% 
+        filter(DLQ140 != 9) %>% 
+        filter(DLQ140 != 7) %>% 
+        filter(PFQ061T != 9) %>% 
+        filter(PFQ061T != 7) %>% 
+        filter(DLQ150 != 7) %>% 
+        filter(DLQ150 != 9) %>% 
+        filter(SLQ040 != 7) %>% 
+        filter(SLQ040 != 9) %>% 
+        filter(DLQ100 != 7) %>% 
+        filter(DLQ100 != 9) 
+
+table(dat1$SLQ040)
+
+summary(dat1)
+
+str(dat1)
+```
+
+```{r}
+#reformat to as.factor and as.numeric
+factors <- c("SLQ050","DLQ140","DLQ100","DLQ150","SLQ050","PFQ061T","SLQ040")
+
+
+#reformat data
+dat2 <- dat1 %>%
+mutate_at(factors, factor) 
+       
+dat2$age <- as.numeric(dat2$age)
+str(dat2)
+
+hist(dat2$age)
+
+                    
+summary(dat2)
+
+```
+
+missing data
+
+```{r}
+
+#check missing data
+sapply(dat2, function(x) sum(is.na(x)))
+
+library(mice)
+init = mice(dat2, maxit=0) 
+meth = init$method
+predM = init$predictorMatrix
+```
+To impute the missing values, mice package use an algorithm in a such a way that use information from other variables in the dataset to predict and impute the missing values. Therefore, you may not want to use a certain variable as predictors. For example, the ID variable does not have any predictive value.
+
+```{r}
+predM[, c("X")]=0
+
+meth[c("BMXWAIST")]="norm" 
+meth[c("BMXBMI")]="norm" 
+meth[c("LBXHSCRP")]="norm" 
+meth[c("LBDIRNSI")]="norm"
+
+set.seed(103)
+imputed = mice(dat2, method=meth, predictorMatrix=predM, m=5)
+
+imputed <- complete(imputed)
+
+sapply(imputed, function(x) sum(is.na(x)))
+
+summary(imputed)
+```
+
+
+```{r}
+str(imputed)
+
+clean_baby <- imputed %>% select(-X)
+```
+
+
+```{r}
+save(clean_baby, file="clean_baby.rda")
+
+str(clean_baby)
+
+table(clean_baby$SLQ050)
+```
+
