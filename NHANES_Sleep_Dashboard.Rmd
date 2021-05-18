@@ -4,6 +4,7 @@ output:
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: fill
+    theme: "yeti"
 runtime: shiny
 ---
 
@@ -85,8 +86,28 @@ App authors: Briha Ansari, MD., Feng-Chiao Lee, Tim Lee, MD.
 
 Row
 -----------------------------------------------------------------------
+### Total N
+```{r}
+total <- nrow(dat)
+valueBox(total, icon = "fa-users")
+```
 
-### Chart A
+### Average sleep hours
+```{r}
+hours <- mean(dat$`Hours of sleep`)
+valueBox(round(hours, 1), icon = "fa-bed")
+```
+
+### % Trouble sleeping
+```{r}
+valueBox(scales::percent(.285), icon = "fa-exclamation-circle",
+         color = "warning")
+# gauge(28.5, min = 0, max = 100, symbol = "%")
+```
+
+Row {data-height = 650}
+-----------------------------------------------------------------------
+### Plot
 
 ```{r}
 renderPlot({
@@ -109,11 +130,11 @@ renderPlot({
 ```
 
 
-Row
+Row {data-height = 150}
 -----------------------------------------------------------------------
 ### Chart C 
 
-```{r}
+```{r, fig.height=1, fig.width=3}
 knitr::kable(descr(dat))
 ```
 

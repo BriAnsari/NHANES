@@ -1,0 +1,178 @@
+---
+title: "NHANES: What affects our sleep?"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    theme: "sandstone" # or"yeti"
+runtime: shiny
+
+---
+
+```{r global, include=FALSE}
+pacman::p_load(
+    rio,
+    here,
+    dplyr,
+    tidyverse,
+    flexdashboard,
+    shiny,
+    plotly,
+    summarytools,
+    prettycode
+)
+
+# import data
+dat <- load(file = "clean_baby.rda")
+final_dat <- clean_baby
+```
+
+# Exploratory Data Analysis
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+On average, humans spend about a 1/3 of each day sleeping. Good sleep is not only vital to our day-to-day functioning but also allows us to lead healthy lives. In the US, 50-70 million people suffer from insomnia. This dashboard uses the 2018 NHANES data to explore the different variables that can affect our sleep. 
+
+Top 10 variables that affect sleep were identified using machine learning. Here, users can explore the data and run different machine learning models to learn about these variables in depth.
+
+
+```{r}
+# separate factors and numeric variables
+var_factor <- final_dat %>% 
+  select_if(is.factor)
+
+var_factor <- colnames(var_factor)
+
+var_numeric <- final_dat %>% 
+  select_if(is.numeric)
+
+var_numeric <- colnames(var_numeric[-1])
+
+# shiny app input numeric
+selectInput("x", label = "X", names(final_dat))
+selectInput("y", label = "Y", c("None", names(final_dat)), names(final_dat)[[2]])
+
+selectInput("color", "Color", c("None", var_factor))
+
+```
+
+
+App authors: Briha Ansari, MD., Feng-Chiao Lee, Tim Lee, MD.
+
+Row
+-----------------------------------------------------------------------
+### Total N
+```{r}
+total <- nrow(final_dat)
+valueBox(total, icon = "fa-users")
+```
+
+### Average sleep hours
+```{r}
+hours <- 7.6
+valueBox(hours, icon = "fa-bed")
+```
+
+### % Trouble sleeping
+```{r}
+valueBox(scales::percent(.285), icon = "fa-exclamation-circle",
+         color = "warning")
+# gauge(28.5, min = 0, max = 100, symbol = "%")
+```
+
+Row
+-----------------------------------------------------------------------
+### Plot
+
+```{r}
+# get plot type
+# 2 = both numeric
+# 1 = one numeric, one non-numeric
+# 0 = both non-numeric
+# -1 = only one variable
+plot_type <- reactive({
+  if(input$y != "None")
+    is.numeric(final_dat[[input$x]]) + is.numeric(final_dat[[input$y]])
+  else
+    -1
+})
+
+renderPlot({
+  if (plot_type() ==2) {
+    # 2 num = scatterplot
+    p <- ggplot(final_dat, aes_string(input$x, input$y))
+
+    # color change
+    if (input$color != "None")
+      p <- p + aes_string(color = input$color)
+  } else if (plot_type() == 1) {
+    # 1 num, 1 non-num = boxplot
+    p <- ggplot(final_dat, aes_string(input$x, input$y)) +
+      geom_boxplot()
+    
+    # fill change
+    if (input$color != "None")
+      p <- p + aes_string(fill = input$color)
+  } 
+  else if (plot_type() == 0 ) {
+    # 2 non-num = heatmap
+    temp_dat <- reactive(final_dat[, c(input$x, input$y)] %>% 
+                           group_by(across()) %>% 
+                           summarize(count = n())
+                         )
+    p <- ggplot(temp_dat(),
+                mapping = aes_string(x = input$x, y = input$y, fill = "count")) +
+      geom_tile()
+  } else {
+    # 1 var only = univariate plot
+    p <- ggplot(final_dat, aes_string(x = input$x))
+    
+    if(is.numeric(final_dat[[input$x]]))
+      p <- p + geom_histogram()
+    else
+      p <- p + geom_bar()
+    
+    # fill change
+    if(input$color != "None")
+      p <- p + aes_string(fill = input$color)
+  }
+  
+  # add title
+  if(plot_type() >= 0) {
+    p <- p + labs(title = paste(input$y, "vs.", input$x))
+  } else {
+    p <- p + labs(title = paste("Distribution of", input$x))
+  }
+  
+  # add styling
+  p <- p +
+    theme_bw() +
+    theme(plot.title = element_text(size = rel(1.8), face = "bold", hjust = 0.5),
+          axis.title = element_text(size = rel(1.2)))
+  print(p)
+})
+
+```
+
+Row {data-height = 150}
+-----------------------------------------------------------------------
+### Chart C 
+
+```{r}
+knitr::kable(descr(final_dat))
+```
+
+# Logistic Regression
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+# Random Forest
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+# XGBoost
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+
+
