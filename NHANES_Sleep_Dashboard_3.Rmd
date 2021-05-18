@@ -23,8 +23,8 @@ pacman::p_load(
 )
 
 # import data
-dat <- load(file = "clean_baby.rda")
-final_dat <- clean_baby
+dat <- load(file = "ready.rda")
+final_dat <- dat1
 ```
 
 # Exploratory Data Analysis
@@ -50,9 +50,9 @@ var_numeric <- colnames(var_numeric[-1])
 
 # shiny app input numeric
 selectInput("x", label = "X", names(final_dat))
-selectInput("y", label = "Y", c("None", names(final_dat)), names(final_dat)[[2]])
+selectInput("y", label = "Y", c("none", names(final_dat)), names(final_dat)[[2]])
 
-selectInput("color", "Color", c("None", var_factor))
+selectInput("color", "Color", c("none", var_factor))
 
 ```
 
@@ -91,7 +91,7 @@ Row
 # 0 = both non-numeric
 # -1 = only one variable
 plot_type <- reactive({
-  if(input$y != "None")
+  if(input$y != "none")
     is.numeric(final_dat[[input$x]]) + is.numeric(final_dat[[input$y]])
   else
     -1
@@ -100,10 +100,12 @@ plot_type <- reactive({
 renderPlot({
   if (plot_type() ==2) {
     # 2 num = scatterplot
-    p <- ggplot(final_dat, aes_string(input$x, input$y))
+    p <- ggplot(final_dat, aes_string(input$x, input$y)) +
+      geom_point(alpha = 0.5) +
+      geom_smooth()
 
     # color change
-    if (input$color != "None")
+    if (input$color != "none")
       p <- p + aes_string(color = input$color)
   } else if (plot_type() == 1) {
     # 1 num, 1 non-num = boxplot
@@ -111,7 +113,7 @@ renderPlot({
       geom_boxplot()
     
     # fill change
-    if (input$color != "None")
+    if (input$color != "none")
       p <- p + aes_string(fill = input$color)
   } 
   else if (plot_type() == 0 ) {
@@ -133,7 +135,7 @@ renderPlot({
       p <- p + geom_bar()
     
     # fill change
-    if(input$color != "None")
+    if(input$color != "none")
       p <- p + aes_string(fill = input$color)
   }
   
@@ -152,14 +154,6 @@ renderPlot({
   print(p)
 })
 
-```
-
-Row {data-height = 150}
------------------------------------------------------------------------
-### Chart C 
-
-```{r}
-knitr::kable(descr(final_dat))
 ```
 
 # Logistic Regression
