@@ -159,6 +159,115 @@ renderPlot({
 # Logistic Regression
 Inputs {.sidebar}
 -----------------------------------------------------------------------
+```{r datloading}
+dat <- load("ready.rda")
+dat<-dat1
+# shiny app input numeric
+
+selectInput("depression", label = "depression: How often do you feel depressed?", 
+    choices = list("Daily" = "Daily", "weekly" = "weekly", "monthly" = "monthly",'few_times_year'='few_times_year','never'='never'), 
+    selected = "Daily")
+numericInput("waist_cm", label = "waist_cm: Waist Circumference (cm)", value = 50,  min = 50, max = 250, step = 0.1)
+numericInput("bmi", label = "bmi: Body Mass Index (kg/m^2)", value = 12,  min = 12, max = 90, step = 0.1)  
+selectInput("difficult_move_objects", label = "difficult_move_objects: Difficulty moving large objects?", 
+    choices = list("no" = "no", "some" = "some", "much" = "much",'unable'='unable','dont_do_this_activity'='dont_do_this_activity'), 
+    selected = "no")
+
+selectInput("depression_med", label = "depression_med: Take medication for depression?", 
+    choices = list("no" = "no", "yes" = "yes"), 
+    selected = "no")
+
+numericInput("age", label = "age", value = 1,  min = 1, max = 110, step = 1)
+
+selectInput("snort", label = "snort:  How often do you snort or stop breathing?", 
+    choices = list("never" = "never", "1-2/wk" = "1-2/wk","3-4/wk"="3-4/wk","5/wk"="5/wk"), 
+    selected = "never")
+
+sliderInput("crp", label = "crp: HS C-Reactive Protein (mg/L)?",
+            min = round(min(dat$crp),2), 
+            max = round(max(dat$crp),2), 
+            value =round(min(dat$crp),2),step =0.01)
+
+selectInput("anxious", label = "anxious:  How often do you feel worried or anxious?", 
+    choices = list("daily" = "daily", "monthly" = "monthly","few/yr"="few/yr","never"="never"), 
+    selected = "daily")
+
+
+sliderInput("iron_um_l", label = "iron_um_l - Iron frozen, Serum (umol/L)",
+            min = round(min(dat$iron_um_l),2), 
+            max = round(max(dat$iron_um_l),2), 
+            value =round(min(dat$iron_um_l),2),step =0.01)
+selectInput("age.cat2", label = "age.cat2: Your Age Range", 
+    choices = list("19-35" = "19-35", "36-50" = "36-50","51-65"="51-65","above65"="above65"), 
+    selected = "19-35")
+selectInput("variable", label = "Choose the Variable effect probability", names(dat))
+```
+
+```{r reactive expression}
+dat <- load("ready.rda")
+dat<-dat1
+logitMod <- glm(formula = sleep_problems ~ depression + waist_cm + bmi + difficult_move_objects + depression_med+age+snort+crp+anxious+iron_um_l+ age.cat2,data = dat,family = binomial(link = "logit"))
+```
+
+```{r stepup, include =FALSE}
+library(DT)
+library(dplyr)
+library(tidyverse)
+library(plotly)
+library(ggeffects)
+library(splines)
+library(titanic)
+library(lmerTest)
+library(ggiraphExtra)
+library(ggplot2)
+library(ggridges)
+```
+Row {data-height=350} 
+-----------------------------------------------------------------------
+### Variable Effect on Sleeping Problem
+```{r histogram}
+renderPlot({
+  
+ggpredict(logitMod, terms = input$variable ,fill=input$variable)%>%plot()
+
+  })
+
+```
+
+
+
+Row {data-height=350}
+--------------
+### Chart A
+
+```{r}
+
+```
+
+
+
+### Chart C
+
+```{r}
+renderValueBox({
+  testdata <- data.frame(age=input$age,
+                         depression =factor(input$depression),
+                       snort=factor(input$snort),
+                       waist_cm=input$waist_cm,
+                       difficult_move_objects = factor(input$difficult_move_objects),
+                       snort = factor(input$snort),
+                       crp = input$crp,
+                       iron_um_l = input$iron_um_l,
+                       anxious = factor(input$anxious),
+                       depression_med=factor(input$depression_med),
+                       bmi=input$bmi,
+                       age.cat2 = factor(input$age.cat2))
+testdata$prob<- predict(logitMod, newdata=testdata, type="response")
+
+valueBox(scales::percent(round(testdata$prob,2)), "Sleeping Problem %",icon = "fa-exclamation-circle",color = "warning")
+})
+```
+
 
 # Random Forest
 Inputs {.sidebar}
