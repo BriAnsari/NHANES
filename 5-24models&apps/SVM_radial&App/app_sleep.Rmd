@@ -1,0 +1,173 @@
+
+---
+title: "NHANES: What affects our sleep?"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    theme: "sandstone" # or"yeti"
+runtime: shiny
+
+---
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(shinydashboard)
+library(dplyr)
+library(tidymodels)
+library(DALEX)
+library(DALEXtra)
+```
+
+```{r load model & data}
+final_mdl_wf <- readRDS("final_svmr_wf.RDS") 
+load("ready.rda")
+
+
+```
+
+
+```{r xplainable, include=FALSE}
+final_mdl_wf_trained <- final_mdl_wf %>% 
+  fit(data = ready)
+
+mdl_explainer <- explain_tidymodels(
+                        model = final_mdl_wf_trained, 
+                        data = ready %>% 
+                          select(-sleep_problems), 
+                        y = ready$sleep_problems,
+                        label = "chosen model")
+
+```
+
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+sliderInput(inputId = "bmi_I", label = "bmi",
+            min = min(ready$bmi), 
+            max = max(ready$bmi),
+            value = 50)
+
+sliderInput(inputId = "iron_I", label = "iron_um_l",
+            min = min(ready$iron_um_l), 
+            max = max(ready$iron_um_l),
+            value = 30)
+
+sliderInput(inputId = "crp_I", label = "crp",
+            min = min(ready$crp), 
+            max = max(ready$crp),
+            value = 70)
+
+selectInput(inputId = "snort_I", label = "snort", 
+            choices = levels(ready$snort),
+            selected = "never")
+
+selectInput(inputId = "move_I", label = "difficult move objects", 
+            choices = levels(ready$difficult_move_objects),
+            selected = "no")
+
+selectInput(inputId = "depression_I", label = "depression", 
+            choices = levels(ready$depression),
+            selected = "never")
+
+selectInput(inputId = "anxious_I", label = "anxious", 
+            choices = levels(ready$anxious),
+            selected = "never")
+
+selectInput(inputId = "age_I",  label = "age",
+            choices = levels(ready$age.cat2))
+
+tags$h4("predicting with chosen model")
+
+new_obs <- reactive({tibble(depression = input$depression_I,
+                           bmi = input$bmi_I,
+                           difficult_move_objects = input$move_I,
+                           snort = input$snort_I,
+                           crp = input$crp_I,
+                           anxious = input$anxious_I,
+                           iron_um_l = input$iron_I,
+                           age.cat2 = input$age_I)
+  })
+
+prob <- reactive({predict(mdl_explainer, newdata = new_obs())})
+```
+
+Column {data-width=500} {.tabset}
+-----------------------------------------------------------------------
+in this section model explanations at __global level__ are displayed
+
+### variable importance plot
+
+```{r}
+  vimp <- model_parts(mdl_explainer)
+
+  plot(vimp)
+```
+
+
+
+### partial dependency plot
+
+```{r}
+  mprofile_group <- model_profile(explainer = mdl_explainer, 
+                                  variables = c("bmi", "crp"),
+                                  groups = "age.cat2", 
+                                  type = "partial")
+  plot(mprofile_group)
+
+```
+
+Column {data-width=500} {.tabset}
+-----------------------------------------------------------------------
+
+in this section model explanations at __local level__ are displayed
+
+### prediction {data-height=50}
+```{r}
+renderText(expr = { 
+  paste0("probability of having sleep problems: ", 
+         round(prob() * 100,2), "%")
+})
+
+```
+
+
+
+### break down profile
+```{r}
+renderPlot({
+  plot(predict_parts_break_down(explainer = mdl_explainer,
+                                new_observation = new_obs()))
+})
+```
+
+
+### ceteris paribus profile BMI
+
+```{r}
+cp <- reactive({ mdl_explainer %>% 
+  predict_profile(new_observation = new_obs(),
+                  variables = c("bmi", "crp", "iron_um_l"))
+})
+```
+
+```{r}
+renderPlot(plot(cp(), variables = "bmi"))
+
+```
+
+### ceteris paribus profile CRP
+
+```{r}
+renderPlot(plot(cp(), variables = "crp"))
+```
+
+### ceteris paribus profile IRON
+
+```{r}
+renderPlot(plot(cp(), variables = "iron_um_l"))
+```
