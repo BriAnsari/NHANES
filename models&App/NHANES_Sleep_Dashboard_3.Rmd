@@ -17,6 +17,7 @@ pacman::p_load(
     tidyverse,
     flexdashboard,
     shiny,
+    shinydashboard,
     plotly,
     summarytools,
     prettycode,
@@ -29,7 +30,10 @@ pacman::p_load(
     ggiraphExtra,
     ggplot2,
     ResourceSelection,
-    pscl
+    pscl,
+    DALEX,
+    DALEXtra,
+    tidymodels
 )
 
 # import data
@@ -77,19 +81,19 @@ Row
 ### Total N
 ```{r}
 total <- nrow(final_dat)
-valueBox(total, icon = "fa-users")
+#valueBox(total, icon = "fa-users")
 ```
 
 ### Average sleep hours
 ```{r}
 hours <- 7.6
-valueBox(hours, icon = "fa-bed")
+#valueBox(hours, icon = "fa-bed")
 ```
 
 ### % Trouble sleeping
 ```{r}
-valueBox(scales::percent(.285), icon = "fa-exclamation-circle",
-         color = "warning")
+#valueBox(scales::percent(.285), icon = "fa-exclamation-circle",
+#         color = "warning")
 # gauge(28.5, min = 0, max = 100, symbol = "%")
 ```
 
@@ -171,20 +175,9 @@ renderPlot({
 # Predication Comparsion
 Inputs {.sidebar}
 -----------------------------------------------------------------------
-```{r}
-library(flexdashboard)
-library(shiny)
-library(shinydashboard)
-library(dplyr)
-library(tidymodels)
-library(DALEX)
-library(DALEXtra)
-```
-
-
 
 ```{r load model & data}
-final_mdl_wf <- readRDS("D:/JHU/2021-Spring-Course/Data_Science_Code/Capstone project/final_lr_wf.RDS") 
+#final_mdl_wf <- readRDS("D:/JHU/2021-Spring-Course/Data_Science_Code/Capstone project/final_lr_wf.RDS") 
 dat<-load("ready.rda")
 dat<-ready
 ```
@@ -200,14 +193,14 @@ sleep_test <- testing(sleep_split)
 
 
 ```{r xplainable, include=FALSE}
-final_mdl_wf_trained <- final_mdl_wf %>% 
-  fit(data = ready)
-mdl_explainer <- explain_tidymodels(
-                        model = final_mdl_wf_trained, 
-                        data = ready %>% 
-                          select(-sleep_problems), 
-                        y = ready$sleep_problems,
-                        label = "chosen model")
+# final_mdl_wf_trained <- final_mdl_wf %>% 
+#   fit(data = ready)
+# mdl_explainer <- explain_tidymodels(
+#                         model = final_mdl_wf_trained, 
+#                         data = ready %>% 
+#                           select(-sleep_problems), 
+#                         y = ready$sleep_problems,
+#                         label = "chosen model")
 ```
 
 Answer the following questions to find out your likelihood of having sleep problems:
@@ -281,8 +274,8 @@ in this section model explanations at __global level__ are displayed
 ### variable importance plot
 
 ```{r}
-  vimp <- model_parts(mdl_explainer)
-  plot(vimp)
+  # vimp <- model_parts(mdl_explainer)
+  # plot(vimp)
 ```
 
 
