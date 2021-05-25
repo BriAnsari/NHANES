@@ -65,7 +65,7 @@ var_numeric <- colnames(var_numeric[-1])
 selectInput("x", label = "X", names(final_dat))
 selectInput("y", label = "Y", c("none", names(final_dat)), names(final_dat)[[2]])
 
-selectInput("color", "Color", c("none", var_factor))
+selectInput("color", "Color by group", c("none", var_factor))
 
 ```
 
@@ -133,10 +133,10 @@ renderPlot({
     # 2 non-num = heatmap
     temp_dat <- reactive(final_dat[, c(input$x, input$y)] %>% 
                            group_by(across()) %>% 
-                           summarize(count = n())
+                           summarize(proportion = n()/length(ready$sleep_problems))
                          )
     p <- ggplot(temp_dat(),
-                mapping = aes_string(x = input$x, y = input$y, fill = "count")) +
+                mapping = aes_string(x = input$x, y = input$y, fill = "proportion")) +
       geom_tile()
   } else {
     # 1 var only = univariate plot
