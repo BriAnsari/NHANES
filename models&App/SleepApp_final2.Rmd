@@ -167,35 +167,62 @@ Inputs {.sidebar}
 Answer the following questions to find out your likelihood of having sleep problems:
 
 ```{r}
-sliderInput(inputId = "bmi", label = "bmi",
-            min = 0,
-            max = max(ready$bmi),
-            value = 50)
-sliderInput(inputId = "iron_um_l", label = "iron_um_l",
-            min = 0,
-            max = max(ready$iron_um_l),
-            value = 30)
-sliderInput(inputId = "crp", label = "crp",
-            min = min(ready$crp),
-            max = max(ready$crp),
-            value = 70)
-selectInput(inputId = "snort", label = "snort",
-            choices = levels(ready$snort),
-            selected = "never")
-selectInput(inputId = "difficult_move_objects", label = "difficult move objects",
-            choices = levels(ready$difficult_move_objects),
-            selected = "no")
-selectInput(inputId = "depression", label = "depression",
-            choices = levels(ready$depression),
-            selected = "never")
-selectInput(inputId = "anxious", label = "anxious",
-            choices = levels(ready$anxious),
-            selected = "never")
-selectInput(inputId = "age",  label = "age",
-            choices = levels(ready$age.cat2))
+# age
+selectInput("age.cat2", label = "age.cat2: Your Age Range", 
+    choices = list("19-35" = "19-35", "36-50" = "36-50","51-65"="51-65","above65"="above65"), 
+    selected = "19-35")
 
-selectInput("variable", label = "Choose a Variable to see how it affects sleep problems", names(final_dat))
+# bmi
+numericInput("bmi", label = "bmi: Body Mass Index (kg/m^2)", value = 20,  min = 12, max = 90, step = 0.1)  
+```
 
+**Mental Health**
+```{r}
+# mental health
+# depression
+selectInput("depression", label = "depression: How often do you feel depressed?", 
+    choices = list("daily" = "Daily", "weekly" = "weekly", "monthly" = "monthly",'few_times_year'='few_times_year','never'='never'), 
+    selected = "never")
+
+# anxiety
+selectInput("anxious", label = "anxious:  How often do you feel worried or anxious?", 
+    choices = list("daily" = "daily", "monthly" = "monthly","few/yr"="few/yr","never"="never"), 
+    selected = "never")
+```
+
+**Physical Health**
+```{r}
+# physical strength
+selectInput("difficult_move_objects", label = "difficult_move_objects: Difficulty moving large objects?", 
+    choices = list("no" = "no", "some" = "some", "much" = "much",'unable'='unable','dont_do_this_activity'='dont_do_this_activity'), 
+    selected = "no")
+
+# snorting
+selectInput("snort", label = "snort:  How often do you snort or stop breathing?", 
+    choices = list("never" = "never", "1-2/wk" = "1-2/wk","3-4/wk"="3-4/wk","5/wk"="5/wk"), 
+    selected = "never")
+```
+
+**Lab values**
+```{r}
+# lab values
+# crp
+sliderInput("crp", label = "crp: HS C-Reactive Protein (mg/L)?",
+            min = 0, 
+            max = round(max(ready$crp),2), 
+            value =round(0,2),step =0.01)
+
+# iron
+sliderInput("iron_um_l", label = "iron_um_l - Iron frozen, Serum (umol/L)",
+            min =0, 
+            max = round(max(ready$iron_um_l),2), 
+            value =round(20,2),step =0.5)
+
+```
+
+**Plot**
+```{r}
+selectInput("variable", label = "Choose a Variable to see how it affects sleep problems", names(ready))
 ```
 
 
@@ -205,8 +232,9 @@ logitMod <- glm(formula = sleep_problems ~ depression
                 + difficult_move_objects 
                 + snort+crp+anxious
                 + iron_um_l
-                + age.cat2,data = final_dat,family = binomial(link = "logit"))
+                + age.cat2, data = ready,family = binomial(link = "logit"))
 ```
+
 
 Row {data-height=450}
 -----------------------------------------------------------------------
@@ -223,7 +251,7 @@ flexdashboard::renderValueBox({
                        bmi=input$bmi,
                        age.cat2 = factor(input$age))
 testdata$prob<- predict(logitMod, newdata=testdata, type="response")
-flexdashboard::valueBox( scales::percent(round(testdata$prob,2)),
+flexdashboard::valueBox(scales::percent(round(testdata$prob, 2)),
          icon = "fa-bed")
 })
 ```
@@ -258,7 +286,7 @@ test_roc = roc(final_dat$sleep_problems ~ test_prob, plot = TRUE, print.auc = TR
 
 
 
-# Regularized Logistic Regression
+# Regularized Logit
 
 -----------------------------------------------------------------------
 
@@ -286,32 +314,60 @@ Inputs {.sidebar}
 Answer the following questions to find out your likelihood of having sleep problems:
 
 ```{r}
-sliderInput(inputId = "bmi_I", label = "bmi",
-            min = min(ready$bmi),
-            max = max(ready$bmi),
-            value = 50)
-sliderInput(inputId = "iron_I", label = "iron_um_l",
-            min = min(ready$iron_um_l),
-            max = max(ready$iron_um_l),
-            value = 30)
-sliderInput(inputId = "crp_I", label = "crp",
-            min = min(ready$crp),
-            max = max(ready$crp),
-            value = 70)
-selectInput(inputId = "snort_I", label = "snort",
-            choices = levels(ready$snort),
-            selected = "never")
-selectInput(inputId = "move_I", label = "difficult move objects",
-            choices = levels(ready$difficult_move_objects),
-            selected = "no")
-selectInput(inputId = "depression_I", label = "depression",
-            choices = levels(ready$depression),
-            selected = "never")
-selectInput(inputId = "anxious_I", label = "anxious",
-            choices = levels(ready$anxious),
-            selected = "never")
-selectInput(inputId = "age_I",  label = "age",
-            choices = levels(ready$age.cat2))
+# age
+selectInput("age.cat2", label = "age.cat2: Your Age Range", 
+    choices = list("19-35" = "19-35", "36-50" = "36-50","51-65"="51-65","above65"="above65"), 
+    selected = "19-35")
+
+# bmi
+numericInput("bmi", label = "bmi: Body Mass Index (kg/m^2)", value = 20,  min = 12, max = 90, step = 0.1)  
+```
+
+**Mental Health**
+```{r}
+# mental health
+# depression
+selectInput("depression", label = "depression: How often do you feel depressed?", 
+    choices = list("daily" = "Daily", "weekly" = "weekly", "monthly" = "monthly",'few_times_year'='few_times_year','never'='never'), 
+    selected = "never")
+
+# anxiety
+selectInput("anxious", label = "anxious:  How often do you feel worried or anxious?", 
+    choices = list("daily" = "daily", "monthly" = "monthly","few/yr"="few/yr","never"="never"), 
+    selected = "never")
+```
+
+**Physical Health**
+```{r}
+# physical strength
+selectInput("difficult_move_objects", label = "difficult_move_objects: Difficulty moving large objects?", 
+    choices = list("no" = "no", "some" = "some", "much" = "much",'unable'='unable','dont_do_this_activity'='dont_do_this_activity'), 
+    selected = "no")
+
+# snorting
+selectInput("snort", label = "snort:  How often do you snort or stop breathing?", 
+    choices = list("never" = "never", "1-2/wk" = "1-2/wk","3-4/wk"="3-4/wk","5/wk"="5/wk"), 
+    selected = "never")
+```
+
+**Lab values**
+```{r}
+# lab values
+# crp
+sliderInput("crp", label = "crp: HS C-Reactive Protein (mg/L)?",
+            min = 0, 
+            max = round(max(ready$crp),2), 
+            value =round(0,2),step =0.01)
+
+# iron
+sliderInput("iron_um_l", label = "iron_um_l - Iron frozen, Serum (umol/L)",
+            min =0, 
+            max = round(max(ready$iron_um_l),2), 
+            value =round(20,2),step =0.5)
+
+```
+
+```{r}
 log_reg_obs <- reactive({tibble(depression = input$depression_I,
                            bmi = input$bmi_I,
                            difficult_move_objects = input$move_I,
@@ -330,12 +386,10 @@ Row {data-height=450}
 ### Variable Effect on Sleeping Problem
 ```{r}
 
-renderValueBox({
+flexdashboard::renderValueBox({
   
-valueBox(value = scales::percent(round(prob1(),2)), 
-         "Sleeping Problem %",
-         icon = icon("bed"),
-         color = "lime")
+flexdashboard::valueBox(value = scales::percent(round(prob1(),2)), 
+         icon = "fa-bed")
 })
 ```
 
@@ -360,7 +414,7 @@ vimp1 <- model_parts(log_reg_explainer)
 ```{r}
 ```
 
-# Radial kernel support vector machine
+# support vector machine
 
 -----------------------------------------------------------------------
 
@@ -434,14 +488,11 @@ Row {data-height=450}
 -----------------------------------------------------------------------
 ### Variable Effect on Sleeping Problem
 ```{r}
-renderValueBox({
+flexdashboard::renderValueBox({
   
-valueBox(value = scales::percent(round(prob(),2)), 
-         "Sleeping Problem %",
-         icon = icon("bed"),
-         color = "lime")
-})
-  
+flexdashboard::valueBox(value = scales::percent(round(prob(),2)), 
+         icon = "fa-bed")
+})  
 ```
 
 ### break down profile
