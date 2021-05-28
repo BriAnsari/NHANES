@@ -25,6 +25,11 @@ sleep_split <- dat1 %>%
   initial_split(prop = 0.8, strata = sleep_problems)
 sleep_train <- training(sleep_split)
 sleep_test <- testing(sleep_split)
+
+ready <- sleep_test
+
+#save(ready, file="ready.rda")
+
 ```
 
 
@@ -34,6 +39,7 @@ sleep_recipe <- recipe(sleep_problems ~ ., data = sleep_train) %>%
   step_normalize(all_numeric_predictors()) %>% 
   step_dummy(all_nominal_predictors(),- all_outcomes()) %>% 
   step_upsample(sleep_problems, over_ratio = 1) %>% 
+  step_nzv(all_predictors()) %>% 
   prep()
 
 sleep_recipe
@@ -127,7 +133,7 @@ final_rf_wf <-
   finalize_workflow(parameters = rf_best)
 
 
-saveRDS(final_rf_wf,file="final_rf_wf.RDS")
+#saveRDS(final_rf_wf,file="final_rf_wf.RDS")
 
 final_rf_fit <- 
   final_rf_wf %>%
@@ -173,7 +179,7 @@ sleep_folds <- vfold_cv(sleep_train, v = 5, repeats = 1)
 ```{r}
 #parallel::detectCores(logical = FALSE)
 doParallel::registerDoParallel(cores = 5)
-metrics = metric_set(roc_auc, sens, spec)
+metrics = metric_set(roc_auc, sens, spec,accuracy)
 
 lr_res <- 
   lr_wf %>% 
@@ -234,7 +240,7 @@ final_lr_fit %>%
   roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
   autoplot()
 
-saveRDS(final_lr_wf,file="final_lr_wf.RDS")
+#saveRDS(final_lr_wf,file="final_lr_wf.RDS")
 
 ```
 
@@ -313,9 +319,6 @@ final_k_wf <-
   k_wf %>% 
   finalize_workflow(parameters = k_best)
 
-final_k <- 
-  final_k_wf %>%
-  fit(data = sleep_train)
 
 final_k_fit <- 
   final_k_wf %>%
@@ -404,10 +407,6 @@ final_bt_wf <-
   finalize_workflow(parameters = bt_best)
 
 
-final_bt <- 
-  final_bt_wf %>%
-  fit(data = sleep_train)
-
 final_bt_fit <- 
   final_bt_wf %>%
   last_fit(sleep_split, 
@@ -494,9 +493,6 @@ final_svmp_wf <-
   svmp_wf %>% 
   finalize_workflow(parameters = svmp_best)
 
-final_svmp <- 
-  final_svmp_wf %>%
-  fit(data = sleep_train)
 
 final_svmp_fit <- 
   final_svmp_wf %>%
@@ -587,9 +583,7 @@ final_svmr_wf <-
   svmr_wf %>% 
   finalize_workflow(parameters = svmr_best)
 
-final_svmr <- 
-  final_svmr_wf %>%
-  fit(data = sleep_train)
+
 
 final_svmr_fit <- 
   final_svmr_wf %>%
@@ -678,9 +672,6 @@ final_ld_wf <-
   ld_wf %>% 
   finalize_workflow(parameters = ld_best)
 
-final_ld <- 
-  final_ld_wf %>%
-  fit(data = sleep_train)
 
 final_ld_fit <- 
   final_ld_wf %>%
