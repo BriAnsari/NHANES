@@ -1,0 +1,688 @@
+---
+
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+library(tidymodels)
+library(ranger)
+```
+
+## data
+```{r}
+load("ready.rda")
+dat1 <- ready 
+
+```
+
+## split data
+```{r}
+set.seed(525)
+sleep_split <- dat1 %>%
+  initial_split(prop = 0.8, strata = sleep_problems)
+sleep_train <- training(sleep_split)
+sleep_test <- testing(sleep_split)
+
+ready <- sleep_test
+
+#save(ready, file="ready.rda")
+
+```
+
+
+## preprocessing
+```{r}
+sleep_recipe <- recipe(sleep_problems ~ ., data = sleep_train) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_dummy(all_nominal_predictors(),- all_outcomes()) %>% 
+  step_upsample(sleep_problems, over_ratio = 1) %>% 
+  step_nzv(all_predictors()) %>% 
+  prep()
+
+sleep_recipe
+```
+
+
+```{r}
+sleep_train_baked <- bake(sleep_recipe, NULL)
+sleep_test_baked <- bake(sleep_recipe, new_data = sleep_test)
+table(sleep_train_baked$sleep_problems)
+table(sleep_test_baked$sleep_problems)
+
+```
+
+
+## random forest
+
+### model specification and workflow creation
+```{r}
+rf <- rand_forest(mtry = tune(), 
+                  trees = tune(), 
+                  min_n = tune()) %>% 
+  set_mode("classification") %>% 
+  set_engine("ranger")
+
+rf_wf <- 
+  workflow() %>% 
+  add_model(rf) %>% 
+  add_recipe(sleep_recipe) 
+```
+
+
+### prepare for hyperparameter tuning
+```{r}
+rf_grid <- grid_regular(mtry(range = c(5L,15L)),
+                        min_n(range = c(5, 10)),
+                        trees(range = c(1000L, 2000L)),
+                             levels = 2)
+set.seed(525)
+sleep_folds <- vfold_cv(sleep_train, v = 5, repeats = 1)
+```
+
+
+### train and tune model (with tune_grid)
+```{r}
+doParallel::registerDoParallel(cores = 5)
+metrics = metric_set(roc_auc, accuracy)
+
+rf_res <- 
+  rf_wf %>% 
+  tune_grid(
+    resamples = sleep_folds,
+    grid = rf_grid, 
+    metrics = metrics,
+    control = control_grid(save_pred = TRUE)
+    )
+
+doParallel::stopImplicitCluster()
+foreach::registerDoSEQ()
+```
+
+
+### evaluate the models
+```{r}
+rf_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = mtry, y = mean, color = .metric)) + 
+  geom_point() + 
+  geom_line() + ylab("") +
+  facet_wrap(~trees + min_n) +
+  ggtitle(label = "model performance", 
+          subtitle = "random forest") 
+
+rf_best <- rf_res %>%
+  select_best(metric = "roc_auc")
+
+rf_auc <- 
+  rf_res %>% 
+  collect_predictions(parameters = rf_best) %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  mutate(model = "random forest")
+
+autoplot(rf_auc)
+
+```
+
+### train and fit the best model
+```{r}
+final_rf_wf <- 
+  rf_wf %>% 
+  finalize_workflow(parameters = rf_best)
+
+
+#saveRDS(final_rf_wf,file="final_rf_wf.RDS")
+
+final_rf_fit <- 
+  final_rf_wf %>%
+  last_fit(sleep_split, 
+           metrics = metrics) 
+
+final_rf_fit %>%
+  collect_metrics()
+
+final_rf_fit %>%
+  collect_predictions() %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  autoplot()
+```
+
+
+## logistic regression
+
+### model specification and workflow creation
+```{r}
+log_reg <- logistic_reg(penalty = tune(), mixture = tune()) %>% 
+  set_mode(mode = "classification") %>% 
+  set_engine(engine = "glmnet")
+
+lr_wf <- workflow() %>% 
+  add_recipe(sleep_recipe) %>% 
+  add_model(log_reg)
+
+```
+
+
+### prepare for hyperparameter tuning
+```{r}
+lr_param <- parameters(log_reg)
+lr_grid <- grid_regular(penalty(), mixture(), levels = 3)
+set.seed(525)
+sleep_folds <- vfold_cv(sleep_train, v = 5, repeats = 1)
+
+```
+
+
+### train and tune model (with tune_grid)
+```{r}
+#parallel::detectCores(logical = FALSE)
+doParallel::registerDoParallel(cores = 5)
+metrics = metric_set(roc_auc, sens, spec,accuracy)
+
+lr_res <- 
+  lr_wf %>% 
+  tune_grid(
+    resamples = sleep_folds,
+    grid = lr_grid, 
+    metrics = metrics,
+    control = control_grid(save_pred = TRUE)
+    )
+
+doParallel::stopImplicitCluster()
+foreach::registerDoSEQ()
+```
+
+### evaluate the models
+```{r}
+lr_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = penalty, y = mean, color = .metric)) + 
+  geom_point() + 
+  geom_line() + ylab("") +
+  facet_wrap(~mixture) +
+  scale_x_log10(labels = scales::label_scientific()) +
+  ggtitle(label = "model performance", 
+          subtitle = "logistic regression") 
+
+lr_best <- lr_res %>%
+  select_best(metric = "roc_auc")
+
+lr_auc <- 
+  lr_res %>% 
+  collect_predictions(parameters = lr_best) %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  mutate(model = "Logistic Regression")
+
+autoplot(lr_auc)
+
+```
+
+
+### train and fit the best model
+```{r}
+final_lr_wf <- 
+  lr_wf %>% 
+  finalize_workflow(parameters = lr_best)
+
+
+final_lr_fit <- 
+  final_lr_wf %>%
+  last_fit(sleep_split, 
+           metrics = metrics) 
+
+final_lr_fit %>%
+  collect_metrics()
+
+final_lr_fit %>%
+  collect_predictions() %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  autoplot()
+
+#saveRDS(final_lr_wf,file="final_lr_wf.RDS")
+
+```
+
+
+## knn
+
+### model specification and workflow creation
+```{r}
+knn <- nearest_neighbor(neighbors = tune()) %>% 
+  set_mode("classification") %>% 
+  set_engine("kknn")
+
+k_wf <- 
+  workflow() %>% 
+  add_model(knn) %>% 
+  add_recipe(sleep_recipe) 
+```
+
+
+### prepare for hyperparameter tuning
+```{r}
+k_param <- parameters(knn)
+k_grid <- grid_regular(neighbors(), levels = 3)
+set.seed(525)
+sleep_folds <- vfold_cv(sleep_train, v = 5, repeats = 1)
+
+```
+
+
+### train and tune model (with tune_grid)
+```{r}
+doParallel::registerDoParallel(cores = 5)
+metrics = metric_set(roc_auc, accuracy)
+
+k_res <- 
+  k_wf %>% 
+  tune_grid(
+    resamples = sleep_folds,
+    grid = k_grid, 
+    metrics = metrics,
+    control = control_grid(save_pred = TRUE)
+    )
+
+doParallel::stopImplicitCluster()
+foreach::registerDoSEQ()
+```
+
+
+### evaluate the models
+```{r}
+k_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = neighbors, y = mean, color = .metric)) + 
+  geom_point() + 
+  geom_line() + ylab("") +
+  ggtitle(label = "model performance", 
+          subtitle = "knn") 
+
+k_best <- k_res %>%
+  select_best(metric = "roc_auc")
+
+k_auc <- 
+  k_res %>% 
+  collect_predictions(parameters = k_best) %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  mutate(model = "knn")
+
+autoplot(k_auc)
+```
+
+
+### train and fit the best model
+
+```{r}
+final_k_wf <- 
+  k_wf %>% 
+  finalize_workflow(parameters = k_best)
+
+
+final_k_fit <- 
+  final_k_wf %>%
+  last_fit(sleep_split, 
+           metrics = metrics) 
+
+final_k_fit %>%
+  collect_metrics()
+
+final_k_fit %>%
+  collect_predictions() %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  autoplot()
+```
+
+## xg boost
+
+### model specification and workflow creation
+```{r}
+bt <- boost_tree(learn_rate = tune(), ) %>% 
+  set_mode("classification") %>% 
+  set_engine("xgboost")
+
+bt_wf <- 
+  workflow() %>% 
+  add_model(bt) %>% 
+  add_recipe(sleep_recipe) 
+```
+
+
+### prepare for hyperparameter tuning
+```{r}
+bt_param <- parameters(bt)
+bt_grid <- grid_regular(learn_rate(), levels = 3)
+set.seed(525)
+sleep_folds <- vfold_cv(sleep_train, v = 5, repeats = 1)
+```
+
+
+### train and tune model (with tune_grid)
+```{r}
+doParallel::registerDoParallel(cores = 5)
+metrics = metric_set(roc_auc, accuracy)
+
+bt_res <- 
+  bt_wf %>% 
+  tune_grid(
+    resamples = sleep_folds,
+    grid = bt_grid, 
+    metrics = metrics,
+    control = control_grid(save_pred = TRUE)
+    )
+
+doParallel::stopImplicitCluster()
+foreach::registerDoSEQ()
+```
+
+
+### evaluate the models
+```{r}
+bt_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = learn_rate, y = mean, color = .metric)) + 
+  geom_point() + 
+  geom_line() + ylab("") +
+  ggtitle(label = "model performance", 
+          subtitle = "xgboost") 
+
+bt_best <- bt_res %>%
+  select_best(metric = "roc_auc")
+
+bt_auc <- 
+  bt_res %>% 
+  collect_predictions(parameters = bt_best) %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  mutate(model = "xgboost")
+
+autoplot(lr_auc)
+
+```
+
+### train and fit the best model
+```{r}
+final_bt_wf <- 
+  bt_wf %>% 
+  finalize_workflow(parameters = bt_best)
+
+
+final_bt_fit <- 
+  final_bt_wf %>%
+  last_fit(sleep_split, 
+           metrics = metrics) 
+
+final_bt_fit %>%
+  collect_metrics()
+
+final_bt_fit %>%
+  collect_predictions() %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  autoplot()
+```
+
+## svm polynomial
+
+### model specification and workflow creation
+```{r}
+svmp <- svm_poly(degree = tune()) %>% 
+  set_engine("kernlab") %>% 
+  set_mode("classification")
+
+svmp_wf <- 
+  workflow() %>% 
+  add_model(svmp) %>% 
+  add_recipe(sleep_recipe) 
+```
+
+
+### prepare for hyperparameter tuning
+```{r}
+svm_param <- parameters(svmp)
+svmp_grid <- grid_regular(degree(), levels = 3)
+set.seed(525)
+sleep_folds <- vfold_cv(sleep_train, v = 5, repeats = 1)
+```
+
+
+### train and tune model (with tune_grid)
+```{r}
+doParallel::registerDoParallel(cores = 5)
+metrics = metric_set(roc_auc, accuracy)
+
+svmp_res <- 
+  svmp_wf %>% 
+  tune_grid(
+    resamples = sleep_folds,
+    grid = svmp_grid, 
+    metrics = metrics,
+    control = control_grid(save_pred = TRUE)
+    )
+
+doParallel::stopImplicitCluster()
+foreach::registerDoSEQ()
+```
+
+
+### evaluate the models
+```{r}
+svmp_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = degree, y = mean, color = .metric)) + 
+  geom_point() + 
+  geom_line() + ylab("") +
+  ggtitle(label = "model performance", 
+          subtitle = "svm polynomial") 
+
+svmp_best <- svmp_res %>%
+  select_best(metric = "roc_auc")
+
+svmp_auc <- 
+  svmp_res %>% 
+  collect_predictions(parameters = svmp_best) %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  mutate(model = "svm polynomial")
+
+autoplot(svmp_auc)
+
+```
+
+### train and fit the best model
+```{r}
+final_svmp_wf <- 
+  svmp_wf %>% 
+  finalize_workflow(parameters = svmp_best)
+
+
+final_svmp_fit <- 
+  final_svmp_wf %>%
+  last_fit(sleep_split, 
+           metrics = metrics) 
+
+final_svmp_fit %>%
+  collect_metrics()
+
+final_svmp_fit %>%
+  collect_predictions() %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  autoplot()
+```
+
+## svm radial kernel
+
+### model specification and workflow creation
+```{r}
+svmr <- svm_rbf(rbf_sigma = tune(), 
+                cost = tune()) %>% 
+  set_engine("kernlab") %>% 
+  set_mode("classification")
+
+svmr_wf <- 
+  workflow() %>% 
+  add_model(svmr) %>% 
+  add_recipe(sleep_recipe) 
+```
+
+
+### prepare for hyperparameter tuning
+```{r}
+svmr_param <- parameters(svmr)
+svmr_grid <- 
+  grid_regular(cost(), rbf_sigma(), levels = 3)
+set.seed(525)
+sleep_folds <- vfold_cv(sleep_train, v = 5, repeats = 1)
+```
+
+
+### train and tune model (with tune_grid)
+```{r}
+doParallel::registerDoParallel(cores = 5)
+metrics = metric_set(roc_auc, accuracy)
+
+svmr_res <- 
+  svmr_wf %>% 
+  tune_grid(
+    resamples = sleep_folds,
+    grid = svmr_grid, 
+    metrics = metrics,
+    control = control_grid(save_pred = TRUE)
+    )
+
+doParallel::stopImplicitCluster()
+foreach::registerDoSEQ()
+```
+
+
+### evaluate the models
+```{r}
+svmr_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = cost, y = mean, color = .metric)) + 
+  geom_point() + 
+  geom_line() + ylab("") +
+  facet_wrap(~rbf_sigma) +
+  ggtitle(label = "model performance", 
+          subtitle = "svm radial")
+
+svmr_best <- svmr_res %>%
+  select_best(metric = "roc_auc")
+
+svmr_auc <- 
+  svmr_res %>% 
+  collect_predictions(parameters = svmr_best) %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  mutate(model = "svm radial")
+
+autoplot(svmr_auc)
+
+```
+
+### train and fit the best model
+```{r}
+final_svmr_wf <- 
+  svmr_wf %>% 
+  finalize_workflow(parameters = svmr_best)
+
+
+
+final_svmr_fit <- 
+  final_svmr_wf %>%
+  last_fit(sleep_split, 
+           metrics = metrics) 
+
+final_svmr_fit %>%
+  collect_metrics()
+
+final_svmr_fit %>%
+  collect_predictions() %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  autoplot()
+```
+
+## linear discriminant
+
+### model specification and workflow creation
+```{r}
+library(discrim)
+ld <- discrim_linear(penalty = tune()) %>% 
+  set_engine("mda") %>% 
+  set_mode("classification")
+
+ld_wf <- 
+  workflow() %>% 
+  add_model(ld) %>% 
+  add_recipe(sleep_recipe) 
+```
+
+
+### prepare for hyperparameter tuning
+```{r}
+ld_param <- parameters(ld)
+ld_grid <- grid_regular(penalty(), levels = 3)
+set.seed(525)
+sleep_folds <- vfold_cv(sleep_train, v = 5, repeats = 1)
+```
+
+
+### train and tune model (with tune_grid)
+```{r}
+doParallel::registerDoParallel(cores = 5)
+metrics = metric_set(roc_auc, accuracy)
+
+ld_res <- 
+  ld_wf %>% 
+  tune_grid(
+    resamples = sleep_folds,
+    grid = ld_grid, 
+    metrics = metrics,
+    control = control_grid(save_pred = TRUE)
+    )
+
+doParallel::stopImplicitCluster()
+foreach::registerDoSEQ()
+```
+
+
+### evaluate the models
+```{r}
+ld_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = penalty, y = mean, color = .metric)) + 
+  geom_point() + 
+  geom_line() + ylab("") +
+  ggtitle(label = "model performance", 
+          subtitle = "lda") 
+
+ld_best <- ld_res %>%
+  select_best(metric = "roc_auc")
+
+ld_auc <- 
+  ld_res %>% 
+  collect_predictions(parameters = ld_best) %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  mutate(model = "lda")
+
+autoplot(ld_auc)
+
+```
+
+### train and fit the best model
+```{r}
+final_ld_wf <- 
+  ld_wf %>% 
+  finalize_workflow(parameters = ld_best)
+
+
+final_ld_fit <- 
+  final_ld_wf %>%
+  last_fit(sleep_split, 
+           metrics = metrics) 
+
+final_ld_fit %>%
+  collect_metrics()
+
+final_ld_fit %>%
+  collect_predictions() %>% 
+  roc_curve(truth = sleep_problems, estimate = .pred_no) %>% 
+  autoplot()
+```
