@@ -11,11 +11,11 @@ In this app, users can explore the data and run a logistic regression model to l
 
 In exploratory data analysis, users can explore the relationships between variables by changing the "X", "Y", and "Color by group" input. The logistic regression tab uses the user input data to predict the probability of reporting sleep problems given the information on age, BMI, mental and physical health, and a few laboratory values. 
 
-The logistic regression tab uses a general logistic regression model to predict of the probability of a patient reporting sleeping problems. The probability of reporting sleep problems will appear on the upper left panel. In the upper right, a figure shows how chosen variable affects the sleeping problem probability. The lower left figure presents the importance of the variables. The lower right figure presents variables coefficients of general logistic regression model.
+The logistic regression tab uses a logistic regression model to predict the probability of a patient reporting sleeping problems. The probability of reporting sleep problems will appear on the upper left panel. In the upper right, a figure shows how chosen variable affects the sleeping problem probability. The lower left figure presents the variables according to statistical significance. The lower right figure presents variables coefficients by the logistic regression model.
  
-Finally, in the machine learning models, regularized logistic regression used a lasso penalty for feature selection of the top three predictors and support vector machines used cost = 32 rbf_sigma = 1e-05 and showed the same variable importance as regularized regression. The top two panels react to user input and show local predictions in term of probability and a breakdown showing the contribution of each variable  while the lower two panels show the variable importance plots and confusion matrix showing proportions of responses mis-classified by the model. 
+Finally, in the machine learning models, regularized logistic regression used a lasso penalty for feature selection of the top three predictors (BMI, CRP and serum Iron levels) and support vector machines used cost = 32 rbf_sigma = 1e-05 and showed the same variable importance as regularized regression. The top two panels react to user input and show local predictions in term of probability and a breakdown showing the contribution of each variable  while the lower two panels show the variable importance plots and confusion matrix showing proportions of responses mis-classified by the model. 
 
-**Important note: The link to the app is not available since the shinyapps.io was not working. Please use the folder named app to download the necessary files for the app** 
+**Important note: The link to the app is not available since the shinyapps.io was not working. Please use the folder named "final" to download the necessary files for the app** 
 
 **References**
 
