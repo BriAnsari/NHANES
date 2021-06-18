@@ -1,0 +1,564 @@
+---
+title: "NHANES: What affects our sleep?"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    theme: "sandstone"
+    source_code: embed
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+pacman::p_load(
+    dplyr,
+    tidyverse,
+    flexdashboard,
+    plotly,
+    summarytools,
+    prettycode,
+    titanic,
+    lmerTest,
+    ggridges,
+    DT,
+    ggeffects,
+    splines,
+    ggiraphExtra,
+    ggplot2,
+    ResourceSelection,
+    pscl,
+    DALEX,
+    DALEXtra,
+    tidymodels,
+    pROC,
+    vip,
+    jtools,
+    devtools
+)
+# import data
+dat <- load(file = "ready.rda")
+final_dat <- ready
+```
+
+# Exploratory Data Analysis
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+**Exploratory Data Analysis**\
+Change the X and Y to explore the relationships between various variables. "Color" segmented the chart further by the selected group but will not work when 2 non-numeric variables are chosen.
+
+
+```{r}
+# separate factors and numeric variables
+var_factor <- final_dat %>% 
+  select_if(is.factor)
+var_factor <- colnames(var_factor)
+var_numeric <- final_dat %>% 
+  select_if(is.numeric)
+var_numeric <- colnames(var_numeric[-1])
+# shiny app input numeric
+selectInput("x", label = "X", names(final_dat))
+selectInput("y", label = "Y", c("none", names(final_dat)), names(final_dat)[[2]])
+selectInput("color", "Color by group", c("none", var_factor))
+```
+
+
+App authors: Briha Ansari, MD., Feng-Chiao Lee, Tim Lee, MD.
+
+Row
+-----------------------------------------------------------------------
+### Total N
+```{r}
+total <- nrow(final_dat)
+valueBox(total, "Total N", icon = "ion-android-contact")
+```
+
+### Average sleep hours
+```{r}
+hours <- 7.6
+valueBox(hours, "Average Sleep Hours", 
+         icon = "ion-android-stopwatch",
+         color = "success")
+```
+
+### % Trouble sleeping
+```{r}
+valueBox(scales::percent(.285), 
+         "Percent reporting sleeping problems", 
+         icon = "ion-battery-low", 
+         color = "warning")
+```
+
+Row
+-----------------------------------------------------------------------
+### Plot
+
+```{r}
+# get plot type
+# 2 = both numeric
+# 1 = one numeric, one non-numeric
+# 0 = both non-numeric
+# -1 = only one variable
+plot_type <- reactive({
+  if(input$y != "none")
+    is.numeric(final_dat[[input$x]]) + is.numeric(final_dat[[input$y]])
+  else
+    -1
+})
+renderPlot({
+  if (plot_type() ==2) {
+    # 2 num = scatterplot
+    p <- ggplot(final_dat, aes_string(input$x, input$y)) +
+      geom_point(alpha = 0.5) +
+      geom_smooth()
+    # color change
+    if (input$color != "none")
+      p <- p + aes_string(color = input$color)
+  } else if (plot_type() == 1) {
+    # 1 num, 1 non-num = boxplot
+    p <- ggplot(final_dat, aes_string(input$x, input$y)) +
+      geom_boxplot()
+    
+    # fill change
+    if (input$color != "none")
+      p <- p + aes_string(fill = input$color)
+  } 
+  else if (plot_type() == 0 ) {
+    # 2 non-num = heatmap
+    temp_dat <- reactive(final_dat[, c(input$x, input$y)] %>% 
+                           group_by(across()) %>% 
+                           summarize(proportion = n()/length(ready$sleep_problems))
+                         )
+    p <- ggplot(temp_dat(),
+                mapping = aes_string(x = input$x, y = input$y, fill = "proportion")) +
+      geom_tile()
+  } else {
+    # 1 var only = univariate plot
+    p <- ggplot(final_dat, aes_string(x = input$x))
+    
+    if(is.numeric(final_dat[[input$x]]))
+      p <- p + geom_histogram()
+    else
+      p <- p + geom_bar()
+    
+    # fill change
+    if(input$color != "none")
+      p <- p + aes_string(fill = input$color)
+  }
+  
+  # add title
+  if(plot_type() >= 0) {
+    p <- p + labs(title = paste(input$y, "vs.", input$x))
+  } else {
+    p <- p + labs(title = paste("Distribution of", input$x))
+  }
+  
+  # add styling
+  p <- p +
+    theme_bw() +
+    theme(plot.title = element_text(size = rel(1.8), face = "bold", hjust = 0.5),
+          axis.title = element_text(size = rel(1.2)))
+  print(p)
+})
+```
+
+
+# Logistic Regression
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+Fill in the following profile to find out the likelihood of the patient reporting sleep problems:
+
+```{r}
+sliderInput(inputId = "bmi", label = "bmi",
+            min = 0,
+            max = max(ready$bmi),
+            value = 20)
+sliderInput(inputId = "iron_um_l", label = "iron_um_l",
+            min = 0,
+            max = max(ready$iron_um_l),
+            value = 15)
+sliderInput(inputId = "crp", label = "crp",
+            min = min(ready$crp),
+            max = max(ready$crp),
+            value = 15)
+selectInput(inputId = "snort", label = "snort",
+            choices = levels(ready$snort),
+            selected = "never")
+selectInput(inputId = "difficult_move_objects", label = "difficult move objects",
+            choices = levels(ready$difficult_move_objects),
+            selected = "no")
+selectInput(inputId = "depression", label = "depression",
+            choices = levels(ready$depression),
+            selected = "never")
+selectInput(inputId = "anxious", label = "anxious",
+            choices = levels(ready$anxious),
+            selected = "never")
+selectInput(inputId = "age",  label = "age",
+            choices = levels(ready$age.cat2))
+
+selectInput("variable", label = "Choose a Variable to see how it affects sleep problems", names(final_dat))
+
+```
+
+
+```{r reactive expression}
+logitMod <- glm(formula = sleep_problems ~ depression  
+                + bmi 
+                + difficult_move_objects 
+                + snort+crp+anxious
+                + iron_um_l
+                + age.cat2,data = final_dat,family = binomial(link = "logit"))
+```
+
+Row {data-height=450}
+-----------------------------------------------------------------------
+### Variable Effect on Sleeping Problem
+```{r}
+renderValueBox({
+  testdata <- data.frame(depression =factor(input$depression),
+                       snort=factor(input$snort),
+                       difficult_move_objects = factor(input$difficult_move_objects),
+                       snort = factor(input$snort),
+                       crp = input$crp,
+                       iron_um_l = input$iron_um_l,
+                       anxious = factor(input$anxious),
+                       bmi=input$bmi,
+                       age.cat2 = factor(input$age))
+testdata$prob<- predict(logitMod, newdata=testdata, type="response")
+valueBox( scales::percent(round(testdata$prob,2)),
+         "Probability of reporting sleep problems",
+         icon = "ion-battery-low",
+         color = "warning")
+})
+```
+
+### Effect plot
+```{r histogram}
+renderPlot({
+ggpredict(logitMod, terms = input$variable ,fill=input$variable)%>%plot()
+  })
+```
+
+
+Row {data-height=450}
+----------------------------------------------------------
+### Statistically significant variables
+```{r}
+renderPlotly({
+  vip(logitMod, mapping = aes_string(fill = "Variable"))
+})
+```
+
+### Variables Performance
+```{r}
+renderPlot({ 
+plot_summs(logitMod,scale = TRUE, inner_ci_level = .9)
+})
+```
+
+
+
+# Regularized Log Regression
+
+```{r load regularized regression model & data}
+log_reg <- readRDS("final_lr_wf.RDS")
+```
+
+
+```{r explainable, include=FALSE}
+log_reg_trained <- log_reg %>%
+  fit(data = final_dat)
+log_reg_explainer <- explain_tidymodels(
+                        model = log_reg_trained,
+                        data = final_dat %>%
+                          select(-sleep_problems),
+                        y = ready$sleep_problems,
+                        label = "Regularized Logistic Regression")
+```
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+Fill in the following profile to find out the likelihood of the patient reporting sleep problems:
+
+```{r}
+sliderInput(inputId = "bmi_I", label = "bmi",
+            min = 0,
+            max = max(ready$bmi),
+            value = 20)
+sliderInput(inputId = "iron_I", label = "iron_um_l",
+            min = 0,
+            max = max(ready$iron_um_l),
+            value = 15)
+sliderInput(inputId = "crp_I", label = "crp",
+            min = 0,
+            max = max(ready$crp),
+            value = 15)
+```
+
+These variables were excluded from the regularized logistic regression.
+
+```{r}
+selectInput(inputId = "snort_I", label = "snort",
+            choices = levels(ready$snort),
+            selected = "never")
+selectInput(inputId = "move_I", label = "difficult move objects",
+            choices = levels(ready$difficult_move_objects),
+            selected = "no")
+selectInput(inputId = "depression_I", label = "depression",
+            choices = levels(ready$depression),
+            selected = "never")
+selectInput(inputId = "anxious_I", label = "anxious",
+            choices = levels(ready$anxious),
+            selected = "never")
+selectInput(inputId = "age_I",  label = "age",
+            choices = levels(ready$age.cat2))
+
+log_reg_obs <- reactive({tibble(depression = input$depression_I,
+                           bmi = input$bmi_I,
+                           difficult_move_objects = input$move_I,
+                           snort = input$snort_I,
+                           crp = input$crp_I,
+                           anxious = input$anxious_I,
+                           iron_um_l = input$iron_I,
+                           age.cat2 = input$age_I)
+  })
+
+prob1 <- reactive({predict(log_reg_explainer, newdata = log_reg_obs())})
+```
+
+
+Row {data-height=450}
+-----------------------------------------------------------------------
+### Probability of reporting sleep problems
+```{r}
+renderValueBox({
+valueBox(value = scales::percent(round(prob1(),2)), 
+         "Probability of reporting sleep problems",
+         icon = "ion-battery-low",
+         color = "warning")
+})
+```
+
+### Break down profile
+```{r}
+renderPlotly({
+  plot(predict_parts_break_down(explainer = log_reg_explainer,
+                                new_observation = log_reg_obs()))
+})
+```
+
+Row {data-height=450}
+-----------------------------------------------------------------------
+### Variable Importance Plot
+```{r}
+vimp1 <- model_parts(log_reg_explainer)
+  renderPlotly({
+  plot(vimp1)
+}) 
+```
+
+### Confusion Matrix
+```{r}
+log_reg_trained %>% 
+  predict(new_data = final_dat, type = "class") %>% 
+  bind_cols(truth = ready$sleep_problems) %>% 
+  conf_mat(truth = truth, estimate = .pred_class) %>% 
+  pluck(1) %>%
+  as_tibble() %>% 
+  ggplot(aes(Prediction, Truth, alpha = n)) +
+  geom_tile(aes(fill = n),show.legend = FALSE) +
+  geom_text(aes(label = round(n/nrow(ready), 2)), 
+            colour = "white", alpha = 1, size = 8)
+```
+
+
+# Support vector machines
+
+```{r load svm model & test data}
+final_mdl_wf <- readRDS("final_svmr_wf.RDS") 
+```
+
+```{r xplainable, include=FALSE}
+final_mdl_wf_trained <- final_mdl_wf %>% 
+  fit(data = final_dat)
+mdl_explainer <- explain_tidymodels(
+                        model = final_mdl_wf_trained, 
+                        data = final_dat %>% 
+                          select(-sleep_problems), 
+                        y = ready$sleep_problems,
+                        label = "Radial kernel support vector machines")
+```
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+Fill in the following profile to find out the likelihood of the patient reporting sleep problems:
+
+```{r}
+sliderInput(inputId = "bmi_j", label = "bmi",
+            min = 0, 
+            max = max(ready$bmi),
+            value = 20)
+sliderInput(inputId = "iron_j", label = "iron_um_l",
+            min = 0, 
+            max = max(ready$iron_um_l),
+            value = 15)
+sliderInput(inputId = "crp_j", label = "crp",
+            min = 0, 
+            max = max(ready$crp),
+            value = 15)
+```
+
+These variables were excluded from the regularized logistic regression.
+
+```{r}
+selectInput(inputId = "snort_j", label = "snort", 
+            choices = levels(ready$snort),
+            selected = "never")
+selectInput(inputId = "move_j", label = "difficult move objects", 
+            choices = levels(ready$difficult_move_objects),
+            selected = "no")
+selectInput(inputId = "depression_j", label = "depression", 
+            choices = levels(ready$depression),
+            selected = "never")
+selectInput(inputId = "anxious_j", label = "anxious", 
+            choices = levels(ready$anxious),
+            selected = "never")
+selectInput(inputId = "age_j",  label = "age",
+            choices = levels(ready$age.cat2))
+```
+
+```{r reactive expression svmr}
+new_obs <- reactive({tibble(depression = input$depression_j,
+                           bmi = input$bmi_j,
+                           difficult_move_objects = input$move_j,
+                           snort = input$snort_j,
+                           crp = input$crp_j,
+                           anxious = input$anxious_j,
+                           iron_um_l = input$iron_j,
+                           age.cat2 = input$age_j)
+  })
+
+prob <- reactive({predict(mdl_explainer, newdata = new_obs())})
+```
+
+
+Row {data-height=450}
+-----------------------------------------------------------------------
+### Probabilty of reporting sleep problems
+```{r}
+renderValueBox({
+valueBox(value = scales::percent(round(prob(),2)), 
+         "Probability of reporting sleep problems",
+         icon = "ion-battery-low",
+         color = "warning")
+})
+  
+```
+
+### Break down profile
+```{r}
+renderPlotly({
+  plot(predict_parts_break_down(explainer = mdl_explainer,
+                                new_observation = new_obs()))
+})
+```
+
+
+Row {data-height=450}
+--------------
+### Variable Importance Plot
+```{r}
+vimp <- model_parts(mdl_explainer)
+  renderPlotly({
+  plot(vimp)
+}) 
+```
+
+### Confusion Matrix
+```{r}
+final_mdl_wf_trained %>% 
+  predict(new_data = final_dat, type = "class") %>% 
+  bind_cols(truth = ready$sleep_problems) %>% 
+  conf_mat(truth = truth, estimate = .pred_class) %>% 
+  pluck(1) %>%
+  as_tibble() %>% 
+  ggplot(aes(Prediction, Truth, alpha = n)) +
+  geom_tile(aes(fill = n),show.legend = FALSE) +
+  geom_text(aes(label = round(n/nrow(ready), 2)), 
+            colour = "white", alpha = 1, size = 8)
+```
+
+
+# About
+______________________________________________________________
+
+On average, humans spend about 33% of each day sleeping. The recommended number of hours of sleep is 7 hours in a 24 hour period[[1]](#1) Good sleep is not only vital to our day-to-day functioning but also allows us to lead healthy lives. In the US, 50-70 million people suffer from insomnia[[2]](#2). This dashboard uses the 2018- National Health and Nutrition Examination Survey (NHANES) data to explore the different variables that may have an effect on self-reported problems with sleeping[[3]](#3).
+ 
+**Data Wrangling and Feature Selection:**
+
+Since this was a cross sectional study, files with longitudinal correlated data were removed. Several smaller datasets were created, and important predictors were chosen using random forest, literature search and domain knowledge of the authors. Datasets with very important predictors were then combined for further preprocessing. Finally literature search and random forest were used once again to choose the final predictors
+
+Preprocessing steps:
+
+* Missing values were imputed
+* Records reported as “don’t know ” and “refused” were removed
+* Variables with >20% missing values were removed
+* Collinearity between variables was checked and one from each pair of correlated variables was dropped
+* The data were reformatted according to the relevant class
+* The data were renamed to “easy to understand” names
+* Class imbalance was addressed 
+
+R markdown file that goes from NHANES data to an analysis-ready data can be found [here](https://github.com/BriAnsari/NHANES/tree/main/Raw2Ready).
+
+**Model Selection:**
+
+Several classification models were trained and tested and models that showed the highest AUC (max = 0.61) were then chosen to be incorporated into the app. The top two best performing tidy models workflows were saved as an .RDS object (regularize logistic regression with lasso penalty and radial kernel support vector machines (cost = 32 rbf_sigma = 1e-05)
+The link to the code can be found [here](https://github.com/BriAnsari/NHANES/tree/main/ClassificationModels).
+
+**Using the App**
+In this app, users can explore the data and run a logistic regression model to learn about these variables in depth. Furthermore, The regularized logistic regression and support vector machines radial basis function kernel incorporated in the app utilize a tidy model workflow under the hood. These workflows train on the dataset in the app by applying data preprocessing steps, fit the models, and show predictions. Please note this app does not use test data.
+
+In exploratory data analysis tab, users can explore the relationships between variables by changing the "X", "Y", and "Color by group" input. The logistic regression tab uses the user input data to predict the probability of reporting sleep problems given the information on age, BMI, mental and physical health, and a few laboratory values. 
+
+The logistic regression tab uses a logistic regression model to predict the probability of a patient reporting sleeping problems. The probability of reporting sleep problems will appear on the upper left panel. In the upper right, a figure shows how chosen variable affects the sleeping problem probability. The lower left figure presents the variables according to statistical significance. The lower right figure presents variables coefficients by the logistic regression model. Please note that this model did not fit well resultin in inaccurate predictions.
+ 
+Finally, in the machine learning models, regularized logistic regression used a lasso penalty for feature selection of the top three predictors (BMI, CRP and serum Iron levels) and support vector machines used cost = 32 rbf_sigma = 1e-05 and showed the same variable importance as regularized regression. The top two panels react to user input and show local predictions in term of probability and a breakdown showing the contribution of each variable, while the lower two panels show the variable importance plots and confusion matrix showing proportions of responses mis-classified by the model. 
+
+**Discussion and Limitations**
+
+* Temporality could not be established since this was a cross sectional data i.e. did sleep problems result in higher BMI or did higher BMI cause sleep problems?
+* The discriminatory performance for even the best model was not high enough (AUC = 0.61). There were better predictors in the data, which could have improved the AUC. but the    ratio for missingness was very high for those and hence those had to be excluded
+* Sample weights to account for oversampling and non responsiveness were not used, which could have resulted in biased estimates
+
+Despite the limitations, the top three predictors (BMI, CRP, Iron levels) show biological plausibility. It is widely accepted that higher BMI is associated with sleep apnea, resulting in disrupted sleep patterns. Although CRP is now considered a nonspecific inflammatory marker, it is usually raised in rheumatological conditions related to pain. In clinical practice, patients with pain may benefit from screening for sleep problems. Finally, low iron levels have shown an association with restless leg syndrome, and the ML models show how lower iron levels increase the probability (although minimal) of insomnia.
+
+**References**
+
+[1] Watson NF, Badr MS, Belenky G, et al.; Consensus Conference Panel. Joint consensus statement of the American Academy of Sleep Medicine and Sleep Research Society on the recommended amount of sleep for a healthy adult: methodology and discussion. Sleep. 2015;38:1161–1183.
+
+[2] Ford ES, Wheaton AG, Cunningham TJ, Giles WH, Chapman DP, Croft JB. Trends in outpatient visits for insomnia, sleep apnea, and prescriptions for sleep medications among US adults: findings from the National Ambulatory Medical Care survey 1999–2010. Sleep. 2014;37(8): 1283–1293.
+
+[3] Centers for Disease Control and Prevention (CDC). National Center for Health Statistics (NCHS). National Health and Nutrition Examination Survey Data. Hyattsville, MD: U.S. Department of Health and Human Services, Centers for Disease Control and Prevention, [2018](https://wwwn.cdc.gov/nchs/nhanes/continuousnhanes/overview.aspx?BeginYear=2017).
+
+[4] Packages: [flexdashboard](https://pkgs.rstudio.com/flexdashboard/index.html), 
+[shiny](https://shiny.rstudio.com), 
+[tidyverse](https://www.tidyverse.org),
+[ggiraphExtra](https://exts.ggplot2.tidyverse.org/ggiraph.html),
+[plotly](https://plotly.com/r/getting-started/),
+[DALEX](https://dalex.drwhy.ai) and DALEXtra,
+[tidymodels](https://www.tidymodels.org),
+[jtools](https://jtools.jacob-long.com),
+[vip](https://koalaverse.github.io/vip/articles/vip.html)
+
+>
+>"Sleep is the swiss-army knife of health. When sleep is deficient, there is sickness and disease. And when sleep is abundant, there is vitality and health."
+>
+>                                                                 - Matthew Walker, PhD
+
+**Disclaimer**
+This app was created as a project for Advanced Data Science for Biomedical Engineering (EN580.464/EN580.664)/Advanced Data Science for Public Health (PH140.628/PH140.629) and is NOT validated. If you have any concerns relating to your sleep, please consult an actual healthcare provider. This app does not reflect the views of the Johns Hopkins University, the Johns Hopkins Hospital, or any of their affiliates.
+
+**Authors**
+Briha Ansari, MD., Feng-Chiao Lee, Tim Lee, MD.
+
+**Last modified**
+May 27, 2021
