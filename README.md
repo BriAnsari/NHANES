@@ -33,9 +33,9 @@ Finally, in the machine learning models, regularized logistic regression used a 
 
 **Discussion and Limitations**
 
-*Temporality could not be established since this was a cross sectional data i.e. did sleep problems result in higher BMI or did higher BMI cause sleep problems?
-*The discriminatory performance for even the best model was not high enough (AUC = 0.61). There were better predictors in the data, which could have improved the AUC. but the    ratio for missingness was very high for those and hence those had to be excluded.
-*Sample weights to account for oversampling and non responsiveness were not used, which could have resulted in biased estimates
+* Temporality could not be established since this was a cross sectional data i.e. did sleep problems result in higher BMI or did higher BMI cause sleep problems?
+* The discriminatory performance for even the best model was not high enough (AUC = 0.61). There were better predictors in the data, which could have improved the AUC. but the    ratio for missingness was very high for those and hence those had to be excluded.
+* Sample weights to account for oversampling and non responsiveness were not used, which could have resulted in biased estimates
 
 
 
