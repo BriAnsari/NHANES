@@ -1,22 +1,23 @@
-**Background**:
+**Background:**
+
 On average, humans spend about 33% of each day sleeping. The recommended number of hours of sleep is 7 hours in a 24 hour period.^1^ Good sleep is not only vital to our day-to-day functioning but also allows us to lead healthy lives. In the US, 50-70 million people suffer from insomnia.^2^ This dashboard uses the 2018- National Health and Nutrition Examination Survey (NHANES) data to explore the different variables that may have an effect on self-reported problems with sleeping.^3^
  
-** Data Wrangling and Feature Selection**
+**Data Wrangling and Feature Selection:**
 
 Since this was a cross sectional study, files with longitudinal data were removed. Several smaller datasets were created, and important predictors were chosen using random forest, literature search and domain knowledge of the authors. Datasets with very important predictors were then combined for further preprocessing. Finally literature search and random forest were used once again to choose the final predictors
 
 Preprocessing steps:
 
-Missing values were imputed
-Records reported as “don’t know ” and “refused” were removed
-Variables with >20% missing values were removed
-Collinearity between variables was checked and one from each pair of correlated variables was dropped
-The data were reformatted according to the relevant class
-The data were renamed to “easy to understand” names
+* Missing values were imputed
+* Records reported as “don’t know ” and “refused” were removed
+* Variables with >20% missing values were removed
+* Collinearity between variables was checked and one from each pair of correlated variables was dropped
+* The data were reformatted according to the relevant class
+* The data were renamed to “easy to understand” names
 
 R markdown file that goes from NHANES data to an analysis-ready data, and the final data can be found [here](https://github.com/BriAnsari/NHANES/tree/main/Raw2Ready).
 
-**Model Selection**
+**Model Selection:**
 
 Several classification models were trained and tested and models that showed the highest AUC (max = 0.61) were then chosen to be incorporated into the app. The top two best performing tidy models workflows were saved as an .RDS object (regularize logistic regression with lasso penalty and radial kernel support vector machines (cost = 32 rbf_sigma = 1e-05)
 The link to the code can be found [here](https://github.com/BriAnsari/NHANES/tree/main/ClassificationModels).
@@ -32,11 +33,9 @@ Finally, in the machine learning models, regularized logistic regression used a 
 
 **Discussion and Limitations**
 
-Temporality could not be established since this was a cross sectional data i.e. did sleep problems result in higher BMI or did higher BMI cause sleep problems?
-
-The discriminatory performance for even the best model was not high enough (AUC = 0.61). There were better predictors in the data, which could have improved the AUC. but the ratio for missingness was very high for those and hence those had to be excluded.
-
-Sample weights to account for oversampling and non responsiveness were not used, which could have resulted in biased estimates
+*Temporality could not be established since this was a cross sectional data i.e. did sleep problems result in higher BMI or did higher BMI cause sleep problems?
+*The discriminatory performance for even the best model was not high enough (AUC = 0.61). There were better predictors in the data, which could have improved the AUC. but the    ratio for missingness was very high for those and hence those had to be excluded.
+*Sample weights to account for oversampling and non responsiveness were not used, which could have resulted in biased estimates
 
 
 
