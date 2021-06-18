@@ -1,6 +1,6 @@
 **Background:**
 
-On average, humans spend about 33% of each day sleeping. The recommended number of hours of sleep is 7 hours in a 24 hour period.^1^ Good sleep is not only vital to our day-to-day functioning but also allows us to lead healthy lives. In the US, 50-70 million people suffer from insomnia.^2^ This dashboard uses the 2018- National Health and Nutrition Examination Survey (NHANES) data to explore the different variables that may have an effect on self-reported problems with sleeping.^3^
+On average, humans spend about 33% of each day sleeping. The recommended number of hours of sleep is 7 hours in a 24 hour period[[1]] Good sleep is not only vital to our day-to-day functioning but also allows us to lead healthy lives. In the US, 50-70 million people suffer from insomnia.^2^ This dashboard uses the 2018- National Health and Nutrition Examination Survey (NHANES) data to explore the different variables that may have an effect on self-reported problems with sleeping.^3^
  
 **Data Wrangling and Feature Selection:**
 
