@@ -4,7 +4,7 @@ On average, humans spend about 33% of each day sleeping. The recommended number 
  
 **Data Wrangling and Feature Selection:**
 
-Since this was a cross sectional study, files with longitudinal correlated data were removed. Several smaller datasets were created, and important predictors were chosen using random forest, literature search and domain knowledge of the authors. Datasets with very important predictors were then combined for further preprocessing. Finally literature search and random forest were used once again to choose the final predictors
+Files with longitudinal correlated data were removed. Several smaller datasets were created, and important predictors were chosen using random forest, literature search and domain knowledge of the authors. Datasets with very important predictors were then combined for further preprocessing. Finally literature search and random forest were used once again to choose the final predictors
 
 Preprocessing steps:
 
@@ -28,17 +28,17 @@ In this app, users can explore the data and run a logistic regression model to l
 
 In exploratory data analysis tab, users can explore the relationships between variables by changing the "X", "Y", and "Color by group" input. The logistic regression tab uses the user input data to predict the probability of reporting sleep problems given the information on age, BMI, mental and physical health, and a few laboratory values. 
 
-The logistic regression tab uses a logistic regression model to predict the probability of a patient reporting sleeping problems. The probability of reporting sleep problems will appear on the upper left panel. In the upper right, a figure shows how chosen variable affects the sleeping problem probability. The lower left figure presents the variables according to statistical significance. The lower right figure presents variables coefficients by the logistic regression model. Please note that this model did not fit well resultin in inaccurate predictions.
+The logistic regression tab uses a logistic regression model to predict the probability of a patient reporting sleeping problems. The probability of reporting sleep problems will appear on the upper left panel. In the upper right, a figure shows how chosen variable affects the sleeping problem probability. The lower left figure presents the variables according to statistical significance. The lower right figure presents variables coefficients by the logistic regression model. Please note that this model did not fit well resulting in inaccurate predictions.
  
-Finally, in the machine learning models, regularized logistic regression used a lasso penalty for feature selection of the top three predictors (BMI, CRP and serum Iron levels) and support vector machines used cost = 32 rbf_sigma = 1e-05 and showed the same variable importance as regularized regression. The top two panels react to user input and show local predictions in term of probability and a breakdown showing the contribution of each variable, while the lower two panels show the variable importance plots and confusion matrix showing proportions of responses mis-classified by the model. 
+Finally, for the machine learning models, regularized logistic regression used a lasso penalty for feature selection of the top three predictors (BMI, CRP and serum Iron levels) and support vector machines used cost = 32 rbf_sigma = 1e-05 and showed the same variable importance as regularized regression. The top two panels react to user input and show local predictions in term of probability and a breakdown showing the contribution of each variable, while the lower two panels show the variable importance plots and confusion matrix showing proportions of responses mis-classified by the model. 
 
 **Discussion and Limitations**
 
 * Temporality could not be established since this was a cross sectional data i.e. did sleep problems result in higher BMI or did higher BMI cause sleep problems?
-* The discriminatory performance for even the best model was not high enough (AUC = 0.61). There were better predictors in the data, which could have improved the AUC. but the    ratio for missingness was very high for those and hence those had to be excluded
-* Sample weights to account for oversampling and non responsiveness were not used, which could have resulted in biased estimates
+* The discriminatory performance for even the best model was not high enough (AUC = 0.61). There were better predictors in the data, which could have improved the AUC. but the ratio for missingness was very high for those and hence those had to be excluded
+* Sample weights to account for oversampling and non responsiveness were not used. This could have resulted in biased estimates
 
-Despite the limitations, the top three predictors (BMI, CRP, Iron levels) show biological plausibility. It is widely accepted that higher BMI is associated with sleep apnea, resulting in disrupted sleep patterns. Although CRP is now considered a nonspecific inflammatory marker, it is usually raised in rheumatological conditions related to pain. In clinical practice, patients with pain may benefit from screening for sleep problems. Finally, low iron levels have shown an association with restless leg syndrome, and the ML models show how lower iron levels increase the probability (although minimal) of insomnia.
+Despite the limitations, the top three predictors (BMI, CRP, Iron levels) show biological plausibility. It is widely accepted that higher BMI is associated with sleep apnea, resulting in disrupted sleep patterns. Although CRP is now considered a nonspecific inflammatory marker, it is usually raised in rheumatological conditions related to pain. In clinical practice, patients with pain may benefit from screening for sleep problems. Finally, low iron levels have shown an association with restless leg syndrome, the chose ML models show how lower iron levels increase the probability (although minimal) of insomnia.
 
 
 **Important note: The link to the app is not available since the shinyapps.io was not working. Please use the folder named "final" to download the necessary files for the app** 
